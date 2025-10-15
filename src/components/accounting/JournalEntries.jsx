@@ -311,198 +311,200 @@ const JournalEntries = () => {
               Add Entry
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle>
                 {editingEntry ? 'Edit Journal Entry' : 'Add New Journal Entry'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+            <div className="overflow-y-auto px-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="entry_date">Entry Date</Label>
+                    <Input
+                      id="entry_date"
+                      type="date"
+                      value={formData.entry_date}
+                      onChange={(e) => setFormData({...formData, entry_date: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="entry_type">Entry Type</Label>
+                    <Select
+                      value={formData.entry_type}
+                      onValueChange={(value) => setFormData({...formData, entry_type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MANUAL">Manual Entry</SelectItem>
+                        <SelectItem value="SALES">Sales Transaction</SelectItem>
+                        <SelectItem value="PURCHASE">Purchase Transaction</SelectItem>
+                        <SelectItem value="INVENTORY">Inventory Adjustment</SelectItem>
+                        <SelectItem value="PAYMENT">Payment</SelectItem>
+                        <SelectItem value="RECEIPT">Receipt</SelectItem>
+                        <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
+                        <SelectItem value="CLOSING">Closing Entry</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="reference_number">Reference Number</Label>
+                    <Input
+                      id="reference_number"
+                      value={formData.reference_number}
+                      onChange={(e) => setFormData({...formData, reference_number: e.target.value})}
+                      placeholder="Optional reference"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="entry_date">Entry Date</Label>
-                  <Input
-                    id="entry_date"
-                    type="date"
-                    value={formData.entry_date}
-                    onChange={(e) => setFormData({...formData, entry_date: e.target.value})}
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Entry description"
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="entry_type">Entry Type</Label>
-                  <Select
-                    value={formData.entry_type}
-                    onValueChange={(value) => setFormData({...formData, entry_type: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MANUAL">Manual Entry</SelectItem>
-                      <SelectItem value="SALES">Sales Transaction</SelectItem>
-                      <SelectItem value="PURCHASE">Purchase Transaction</SelectItem>
-                      <SelectItem value="INVENTORY">Inventory Adjustment</SelectItem>
-                      <SelectItem value="PAYMENT">Payment</SelectItem>
-                      <SelectItem value="RECEIPT">Receipt</SelectItem>
-                      <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
-                      <SelectItem value="CLOSING">Closing Entry</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="reference_number">Reference Number</Label>
-                  <Input
-                    id="reference_number"
-                    value={formData.reference_number}
-                    onChange={(e) => setFormData({...formData, reference_number: e.target.value})}
-                    placeholder="Optional reference"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Entry description"
-                  required
-                />
-              </div>
-
-              {/* Journal Lines */}
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <Label>Journal Lines</Label>
-                  <Button type="button" onClick={addLine} variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Line
-                  </Button>
-                </div>
-                
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left p-3">Account</th>
-                        <th className="text-left p-3">Description</th>
-                        <th className="text-right p-3">Debit</th>
-                        <th className="text-right p-3">Credit</th>
-                        <th className="text-center p-3">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.lines.map((line, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="p-3">
-                            <Select
-                              value={line.account}
-                              onValueChange={(value) => updateLine(index, 'account', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select account" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {accounts.map((account) => (
-                                  <SelectItem key={account.id} value={account.id.toString()}>
-                                    {account.code} - {account.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                {/* Journal Lines */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <Label>Journal Lines</Label>
+                    <Button type="button" onClick={addLine} variant="outline" size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Line
+                    </Button>
+                  </div>
+                  
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left p-3">Account</th>
+                          <th className="text-left p-3">Description</th>
+                          <th className="text-right p-3">Debit</th>
+                          <th className="text-right p-3">Credit</th>
+                          <th className="text-center p-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.lines.map((line, index) => (
+                          <tr key={index} className="border-t">
+                            <td className="p-3">
+                              <Select
+                                value={line.account}
+                                onValueChange={(value) => updateLine(index, 'account', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accounts.map((account) => (
+                                    <SelectItem key={account.id} value={account.id.toString()}>
+                                      {account.code} - {account.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                value={line.description}
+                                onChange={(e) => updateLine(index, 'description', e.target.value)}
+                                placeholder="Line description"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={line.debit_amount}
+                                onChange={(e) => updateLine(index, 'debit_amount', parseFloat(e.target.value) || 0)}
+                                placeholder="0.00"
+                                className="text-right"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={line.credit_amount}
+                                onChange={(e) => updateLine(index, 'credit_amount', parseFloat(e.target.value) || 0)}
+                                placeholder="0.00"
+                                className="text-right"
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              {formData.lines.length > 2 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeLine(index)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t">
+                        <tr>
+                          <td colSpan="2" className="p-3 font-semibold">Totals:</td>
+                          <td className="p-3 text-right font-semibold">
+                            {formatCurrency(getTotalDebits())}
                           </td>
-                          <td className="p-3">
-                            <Input
-                              value={line.description}
-                              onChange={(e) => updateLine(index, 'description', e.target.value)}
-                              placeholder="Line description"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={line.debit_amount}
-                              onChange={(e) => updateLine(index, 'debit_amount', parseFloat(e.target.value) || 0)}
-                              placeholder="0.00"
-                              className="text-right"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={line.credit_amount}
-                              onChange={(e) => updateLine(index, 'credit_amount', parseFloat(e.target.value) || 0)}
-                              placeholder="0.00"
-                              className="text-right"
-                            />
+                          <td className="p-3 text-right font-semibold">
+                            {formatCurrency(getTotalCredits())}
                           </td>
                           <td className="p-3 text-center">
-                            {formData.lines.length > 2 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeLine(index)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                            {isBalanced() ? (
+                              <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-600 mx-auto" />
                             )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 border-t">
-                      <tr>
-                        <td colSpan="2" className="p-3 font-semibold">Totals:</td>
-                        <td className="p-3 text-right font-semibold">
-                          {formatCurrency(getTotalDebits())}
-                        </td>
-                        <td className="p-3 text-right font-semibold">
-                          {formatCurrency(getTotalCredits())}
-                        </td>
-                        <td className="p-3 text-center">
-                          {isBalanced() ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-red-600 mx-auto" />
-                          )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                
-                {!isBalanced() && (
-                  <div className="text-red-600 text-sm mt-2">
-                    Warning: Debits and credits must be equal
+                      </tfoot>
+                    </table>
                   </div>
-                )}
-              </div>
+                  
+                  {!isBalanced() && (
+                    <div className="text-red-600 text-sm mt-2">
+                      Warning: Debits and credits must be equal
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  placeholder="Additional notes"
-                />
-              </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                    placeholder="Additional notes"
+                  />
+                </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={!isBalanced()}>
-                  {editingEntry ? 'Update' : 'Create'} Entry
-                </Button>
-              </div>
-            </form>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={!isBalanced()}>
+                    {editingEntry ? 'Update' : 'Create'} Entry
+                  </Button>
+                </div>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

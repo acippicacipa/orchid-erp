@@ -340,7 +340,7 @@ const BillOfMaterials = () => {
               <PlusCircle className="mr-2 h-4 w-4" /> New BOM
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
+          <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
             <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle>
                 {editingBom ? 'Edit Bill of Materials' : 'Create New Bill of Materials'}

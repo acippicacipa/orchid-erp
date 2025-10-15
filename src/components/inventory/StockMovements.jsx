@@ -527,7 +527,7 @@ const StockMovements = () => {
               <Select value={filters.location} onValueChange={(value) => handleFilterChange('location', value)}>
                 <SelectTrigger id="location"><SelectValue placeholder="All Locations" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                  <SelectItem value="all">All Locations</SelectItem>
                   {locations.map((loc) => (<SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>))}
                 </SelectContent>
               </Select>

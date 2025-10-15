@@ -155,26 +155,28 @@ function NavigationItems({ mobile = false, onItemClick = () => {} }) {
               )}
             </div>
             {hasSubItems && isSubMenuOpen && (
-              <div className="ml-6 mt-1 space-y-1">
-                {item.subItems.map((subItem) => {
-                  const isSubItemActive = location.pathname === subItem.href;
-                  return (
-                    <Link
-                      key={subItem.href}
-                      to={subItem.href}
-                      onClick={() => onItemClick(subItem.href)} // Pastikan onItemClick dipanggil di sini juga
-                      className={`
-                        flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${isSubItemActive 
-                          ? 'bg-secondary text-secondary-foreground' 
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }
-                      `}
-                    >
-                      {subItem.name}
-                    </Link>
-                  );
-                })}
+              <div className="relative mt-1 pl-5 ml-3 border-l-2 border-gray-200 dark:border-gray-700">
+                <div className="space-y-1 py-1">
+                  {item.subItems.map((subItem) => {
+                    const isSubItemActive = location.pathname === subItem.href;
+                    return (
+                      <Link
+                        key={subItem.href}
+                        to={subItem.href}
+                        onClick={() => onItemClick(subItem.href)} // Pastikan onItemClick dipanggil di sini juga
+                        className={`
+                          flex items-center w-full px-2 py-1.5 rounded-md text-sm font-medium transition-colors
+                          ${isSubItemActive 
+                            ? 'bg-secondary text-secondary-foreground' 
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }
+                        `}
+                      >
+                        {subItem.name}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

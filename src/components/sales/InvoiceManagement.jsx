@@ -423,7 +423,7 @@ const InvoiceManagement = () => {
                       <SelectValue placeholder="Select sales order" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Sales Order</SelectItem>
+                      <SelectItem value="none">No Sales Order</SelectItem>
                       {salesOrders.map(order => (
                         <SelectItem key={order.id} value={order.id.toString()}>
                           {order.order_number || `SO-${order.id}`} - {order.customer_name} - {formatCurrency(order.total_amount || 0)}

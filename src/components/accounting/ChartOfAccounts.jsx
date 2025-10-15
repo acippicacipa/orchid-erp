@@ -214,177 +214,179 @@ const ChartOfAccounts = () => {
               Add Account
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle>
                 {editingAccount ? 'Edit Account' : 'Add New Account'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="account_type">Account Type</Label>
-                  <Select
-                    value={formData.account_type}
-                    onValueChange={(value) => setFormData({...formData, account_type: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select account type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id.toString()}>
-                          {type.name} ({type.category})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <div className="overflow-y-auto px-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="account_type">Account Type</Label>
+                    <Select
+                      value={formData.account_type}
+                      onValueChange={(value) => setFormData({...formData, account_type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accountTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.id.toString()}>
+                            {type.name} ({type.category})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="code">Account Code</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      placeholder="e.g., 1001"
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <Label htmlFor="code">Account Code</Label>
+                  <Label htmlFor="name">Account Name</Label>
                   <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value})}
-                    placeholder="e.g., 1001"
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g., Cash in Bank"
                     required
                   />
                 </div>
-              </div>
 
-              <div>
-                <Label htmlFor="name">Account Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g., Cash in Bank"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Account description"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="parent_account">Parent Account</Label>
-                <Select 
-                  value={selectedCategory || 'all'} // Gunakan 'all' jika selectedCategory kosong
-                  onValueChange={(value) => {
-                    // Jika pengguna memilih 'all', set state menjadi string kosong
-                    setSelectedCategory(value === 'all' ? '' : value);
-                  }}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem> {/* <-- PERUBAHAN DI SINI */}
-                    <SelectItem value="ASSET">Assets</SelectItem>
-                    <SelectItem value="LIABILITY">Liabilities</SelectItem>
-                    <SelectItem value="EQUITY">Equity</SelectItem>
-                    <SelectItem value="REVENUE">Revenue</SelectItem>
-                    <SelectItem value="EXPENSE">Expenses</SelectItem>
-                  </SelectContent>
-                </Select>
-
-              </div>
-
-              <div>
-                <Label htmlFor="opening_balance">Opening Balance</Label>
-                <Input
-                  id="opening_balance"
-                  type="number"
-                  step="0.01"
-                  value={formData.opening_balance}
-                  onChange={(e) => setFormData({...formData, opening_balance: parseFloat(e.target.value) || 0})}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Account description"
                   />
-                  <Label htmlFor="is_active">Active</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_header_account"
-                    checked={formData.is_header_account}
-                    onCheckedChange={(checked) => setFormData({...formData, is_header_account: checked})}
-                  />
-                  <Label htmlFor="is_header_account">Header Account</Label>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="allow_manual_entries"
-                    checked={formData.allow_manual_entries}
-                    onCheckedChange={(checked) => setFormData({...formData, allow_manual_entries: checked})}
-                  />
-                  <Label htmlFor="allow_manual_entries">Allow Manual Entries</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="tax_account"
-                    checked={formData.tax_account}
-                    onCheckedChange={(checked) => setFormData({...formData, tax_account: checked})}
-                  />
-                  <Label htmlFor="tax_account">Tax Account</Label>
-                </div>
-              </div>
+                <div>
+                  <Label htmlFor="parent_account">Parent Account</Label>
+                  <Select 
+                    value={selectedCategory || 'all'} // Gunakan 'all' jika selectedCategory kosong
+                    onValueChange={(value) => {
+                      // Jika pengguna memilih 'all', set state menjadi string kosong
+                      setSelectedCategory(value === 'all' ? '' : value);
+                    }}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem> {/* <-- PERUBAHAN DI SINI */}
+                      <SelectItem value="ASSET">Assets</SelectItem>
+                      <SelectItem value="LIABILITY">Liabilities</SelectItem>
+                      <SelectItem value="EQUITY">Equity</SelectItem>
+                      <SelectItem value="REVENUE">Revenue</SelectItem>
+                      <SelectItem value="EXPENSE">Expenses</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="bank_account"
-                    checked={formData.bank_account}
-                    onCheckedChange={(checked) => setFormData({...formData, bank_account: checked})}
-                  />
-                  <Label htmlFor="bank_account">Bank Account</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="cash_account"
-                    checked={formData.cash_account}
-                    onCheckedChange={(checked) => setFormData({...formData, cash_account: checked})}
+
+                <div>
+                  <Label htmlFor="opening_balance">Opening Balance</Label>
+                  <Input
+                    id="opening_balance"
+                    type="number"
+                    step="0.01"
+                    value={formData.opening_balance}
+                    onChange={(e) => setFormData({...formData, opening_balance: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
                   />
-                  <Label htmlFor="cash_account">Cash Account</Label>
                 </div>
-              </div>
 
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  placeholder="Additional notes"
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_active"
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+                    />
+                    <Label htmlFor="is_active">Active</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_header_account"
+                      checked={formData.is_header_account}
+                      onCheckedChange={(checked) => setFormData({...formData, is_header_account: checked})}
+                    />
+                    <Label htmlFor="is_header_account">Header Account</Label>
+                  </div>
+                </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingAccount ? 'Update' : 'Create'} Account
-                </Button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="allow_manual_entries"
+                      checked={formData.allow_manual_entries}
+                      onCheckedChange={(checked) => setFormData({...formData, allow_manual_entries: checked})}
+                    />
+                    <Label htmlFor="allow_manual_entries">Allow Manual Entries</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="tax_account"
+                      checked={formData.tax_account}
+                      onCheckedChange={(checked) => setFormData({...formData, tax_account: checked})}
+                    />
+                    <Label htmlFor="tax_account">Tax Account</Label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="bank_account"
+                      checked={formData.bank_account}
+                      onCheckedChange={(checked) => setFormData({...formData, bank_account: checked})}
+                    />
+                    <Label htmlFor="bank_account">Bank Account</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="cash_account"
+                      checked={formData.cash_account}
+                      onCheckedChange={(checked) => setFormData({...formData, cash_account: checked})}
+                    />
+                    <Label htmlFor="cash_account">Cash Account</Label>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                    placeholder="Additional notes"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingAccount ? 'Update' : 'Create'} Account
+                  </Button>
+                </div>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -408,158 +408,160 @@ const InvoiceManagement = () => {
               Create Invoice
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle>
                 {editingInvoice ? 'Edit Invoice' : 'Create New Invoice'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sales_order">Sales Order (Optional)</Label>
-                  <Select value={formData.sales_order} onValueChange={handleSalesOrderChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sales order" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Sales Order</SelectItem>
-                      {salesOrders.map(order => (
-                        <SelectItem key={order.id} value={order.id.toString()}>
-                          {order.order_number || `SO-${order.id}`} - {order.customer_name} - {formatCurrency(order.total_amount || 0)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <div className="overflow-y-auto px-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sales_order">Sales Order (Optional)</Label>
+                    <Select value={formData.sales_order} onValueChange={handleSalesOrderChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sales order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Sales Order</SelectItem>
+                        {salesOrders.map(order => (
+                          <SelectItem key={order.id} value={order.id.toString()}>
+                            {order.order_number || `SO-${order.id}`} - {order.customer_name} - {formatCurrency(order.total_amount || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customer">Customer *</Label>
+                    <Select value={formData.customer} onValueChange={(value) => setFormData(prev => ({ ...prev, customer: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id.toString()}>
+                            {customer.name} - {customer.customer_id}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="due_date">Due Date *</Label>
+                    <Input
+                      id="due_date"
+                      name="due_date"
+                      type="date"
+                      value={formData.due_date}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="SENT">Sent</SelectItem>
+                        <SelectItem value="PARTIAL">Partially Paid</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
+                        <SelectItem value="OVERDUE">Overdue</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="subtotal">Subtotal (IDR) *</Label>
+                    <Input
+                      id="subtotal"
+                      name="subtotal"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.subtotal}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discount_amount">Discount Amount (IDR)</Label>
+                    <Input
+                      id="discount_amount"
+                      name="discount_amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.discount_amount}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tax_amount">Tax Amount (IDR)</Label>
+                    <Input
+                      id="tax_amount"
+                      name="tax_amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.tax_amount}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="total_amount">Total Amount (IDR) *</Label>
+                    <Input
+                      id="total_amount"
+                      name="total_amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.total_amount}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_terms">Payment Terms</Label>
+                    <Select value={formData.payment_terms} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_terms: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Net 15 days">Net 15 days</SelectItem>
+                        <SelectItem value="Net 30 days">Net 30 days</SelectItem>
+                        <SelectItem value="Net 45 days">Net 45 days</SelectItem>
+                        <SelectItem value="Net 60 days">Net 60 days</SelectItem>
+                        <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
+                        <SelectItem value="Prepaid">Prepaid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customer">Customer *</Label>
-                  <Select value={formData.customer} onValueChange={(value) => setFormData(prev => ({ ...prev, customer: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                          {customer.name} - {customer.customer_id}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="due_date">Due Date *</Label>
-                  <Input
-                    id="due_date"
-                    name="due_date"
-                    type="date"
-                    value={formData.due_date}
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
                     onChange={handleInputChange}
-                    required
+                    rows={3}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DRAFT">Draft</SelectItem>
-                      <SelectItem value="SENT">Sent</SelectItem>
-                      <SelectItem value="PARTIAL">Partially Paid</SelectItem>
-                      <SelectItem value="PAID">Paid</SelectItem>
-                      <SelectItem value="OVERDUE">Overdue</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Saving...' : (editingInvoice ? 'Update' : 'Create')}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="subtotal">Subtotal (IDR) *</Label>
-                  <Input
-                    id="subtotal"
-                    name="subtotal"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.subtotal}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="discount_amount">Discount Amount (IDR)</Label>
-                  <Input
-                    id="discount_amount"
-                    name="discount_amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.discount_amount}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tax_amount">Tax Amount (IDR)</Label>
-                  <Input
-                    id="tax_amount"
-                    name="tax_amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.tax_amount}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="total_amount">Total Amount (IDR) *</Label>
-                  <Input
-                    id="total_amount"
-                    name="total_amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.total_amount}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="payment_terms">Payment Terms</Label>
-                  <Select value={formData.payment_terms} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_terms: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Net 15 days">Net 15 days</SelectItem>
-                      <SelectItem value="Net 30 days">Net 30 days</SelectItem>
-                      <SelectItem value="Net 45 days">Net 45 days</SelectItem>
-                      <SelectItem value="Net 60 days">Net 60 days</SelectItem>
-                      <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
-                      <SelectItem value="Prepaid">Prepaid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Saving...' : (editingInvoice ? 'Update' : 'Create')}
-                </Button>
-              </div>
-            </form>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

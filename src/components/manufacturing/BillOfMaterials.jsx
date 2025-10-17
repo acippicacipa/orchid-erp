@@ -101,7 +101,7 @@ const ProductSearchDropdown = ({ onSelect, initialValue = '', filter = () => tru
                 className="p-2 hover:bg-accent cursor-pointer"
                 onMouseDown={() => handleSelect(product)}
               >
-                <div className="font-medium">{product.sku} - {product.name}</div>
+                <div className="font-medium">{product.sku} - {product.name} {product.color} </div>
                 <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div>
               </div>
             ))
@@ -495,7 +495,7 @@ const BillOfMaterials = () => {
               <TableRow key={bom.id}>
                 <TableCell className="font-medium">
                   <div>
-                    <div>{bom.product_name || 'N/A'}</div>
+                    <div>{bom.product_name || 'N/A'} {bom.product_color}</div>
                     <div className="text-sm text-gray-500">{bom.product_sku || 'N/A'}</div>
                   </div>
                 </TableCell>

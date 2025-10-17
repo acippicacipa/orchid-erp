@@ -353,7 +353,7 @@ const ProductManagement = () => {
                     name="cost_price" 
                     type="text"
                     // Format dengan desimal
-                    value={formatRupiah(newProduct.cost_price, true)} 
+                    value={newProduct.cost_price} 
                     onChange={handleInputChange} 
                     required 
                   />
@@ -365,7 +365,7 @@ const ProductManagement = () => {
                     name="selling_price" 
                     type="text"
                     // Format tanpa desimal
-                    value={formatRupiah(newProduct.selling_price, false)} 
+                    value={newProduct.selling_price} 
                     onChange={handleInputChange} 
                     required 
                   />

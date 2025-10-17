@@ -221,7 +221,7 @@ export default function Layout({ children }) {
           </div>
 
           {/* Navigation */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-100">
             <div className="flex-1 px-4 py-6 overflow-y-auto">
               <NavigationItems />
             </div>
@@ -299,7 +299,7 @@ export default function Layout({ children }) {
       </Sheet>
 
       {/* Main Content */}
-      <div className="lg:pl-64 flex flex-col flex-1">
+      <div className="lg:pl-64 flex flex-col flex-1 -translate-y-8">
         {/* Top Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 sm:px-6 lg:px-8">
@@ -362,7 +362,7 @@ export default function Layout({ children }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1">
+        <main className="flex-1 p-2">
           {children}
         </main>
       </div>

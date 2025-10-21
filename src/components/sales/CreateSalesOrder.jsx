@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -7,34 +7,47 @@ import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Search, Plus, Edit, Trash2, ShoppingCart, Package, Calendar, User, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
+import ProductSearchDropdown from './ProductSearchDropdown';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+const getTodayDateString = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  // Bulan dimulai dari 0 (Januari), jadi kita tambah 1.
+  // `padStart` memastikan formatnya selalu 2 digit (misal: 09 untuk September).
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
 
 const CreateSalesOrder = () => {
   const [salesOrders, setSalesOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [productSearchTerm, setProductSearchTerm] = useState('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const { toast } = useToast();
 
-  const [formData, setFormData] = useState({
+  const initialFormState = {
     customer: '',
-    due_date: '',
+    due_date: getTodayDateString(),
     status: 'DRAFT',
     discount_percentage: '0',
-    tax_percentage: '11',
+    tax_percentage: '0',
     shipping_cost: '0',
     notes: '',
     items: []
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   const [newItem, setNewItem] = useState({
     product: '',
@@ -53,21 +66,13 @@ const CreateSalesOrder = () => {
     filterOrders();
   }, [salesOrders, searchTerm]);
 
-  useEffect(() => {
-    if (productSearchTerm.length >= 2) {
-      searchProducts();
-    } else {
-      setProducts([]);
-    }
-  }, [productSearchTerm]);
-
   // Ganti fungsi fetchSalesOrders yang lama dengan ini:
 
   const fetchSalesOrders = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/sales/sales-orders/', {
+      const response = await fetch(`${API_BASE_URL}/sales/sales-orders/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -113,7 +118,7 @@ const CreateSalesOrder = () => {
   const fetchCustomers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/sales/customers/', {
+      const response = await fetch(`${API_BASE_URL}/sales/customers/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -137,26 +142,6 @@ const CreateSalesOrder = () => {
     } catch (error) {
       console.error('Error fetching customers:', error);
       setCustomers([]); // Pastikan reset ke array kosong jika terjadi error
-    }
-  };
-
-  const searchProducts = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/sales/products/search/?q=${productSearchTerm}`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-        setShowProductDropdown(true);
-      }
-    } catch (error) {
-      console.error('Error searching products:', error);
     }
   };
 
@@ -189,46 +174,120 @@ const CreateSalesOrder = () => {
     }));
   };
 
-  const selectProduct = (product) => {
-    setNewItem(prev => ({
-      ...prev,
-      product: product.id,
-      product_name: product.name,
-      unit_price: product.price.toString()
-    }));
-    setProductSearchTerm(product.name);
-    setShowProductDropdown(false);
+  const fetchProductPrice = useCallback(async (productId, quantity) => {
+    const customerId = formData.customer;
+    if (!productId || !customerId || !quantity) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${API_BASE_URL}/sales/products/${productId}/calculate-price/?customer_id=${customerId}&quantity=${quantity}`,
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update state newItem dengan harga dan diskon dari backend
+        setNewItem(prev => ({
+          ...prev,
+          unit_price: data.unit_price.toString(),
+          discount_percentage: data.discount_percentage.toString()
+        }));
+      } else {
+        console.error("Failed to fetch calculated price");
+      }
+    } catch (error) {
+      console.error("Error fetching price:", error);
+    }
+  }, [formData.customer]); // Dependensi pada customerId
+
+  // Panggil fetchProductPrice saat produk atau kuantitas berubah
+  useEffect(() => {
+    if (newItem.product && newItem.quantity) {
+      fetchProductPrice(newItem.product, newItem.quantity);
+    }
+  }, [newItem.product, newItem.quantity, fetchProductPrice]);
+
+  const handleProductSelect = (product) => {
+    if (product) {
+      setNewItem(prev => ({
+        ...prev,
+        product: product.id,
+        product_name: product.name,
+        // Gunakan selling_price sebagai default unit_price
+        unit_price: '0', 
+        discount_percentage: '0' 
+      }));
+    } else {
+      // Jika produk dikosongkan (misal saat pengguna mengetik ulang)
+      setNewItem(prev => ({
+        ...prev,
+        product: '',
+        product_name: '',
+        unit_price: '0',
+        discount_percentage: '0'
+      }));
+    }
   };
 
   const selectCustomer = (customer) => {
-    setFormData(prev => ({
-      ...prev,
-      customer: customer.id,
-      discount_percentage: customer.discount_percentage?.toString() || '0'
-    }));
-    setCustomerSearchTerm(customer.name);
+    if (formData.items.length > 0) {
+      const isConfirmed = window.confirm(
+        'Changing the customer will reset the current order. Are you sure you want to continue?'
+      );
+      if (!isConfirmed) {
+        // Jika pengguna membatalkan, jangan lakukan apa-apa
+        // Kita bisa kembalikan tampilan search bar ke nama customer sebelumnya jika perlu
+        const previousCustomer = customers.find(c => c.id === formData.customer);
+        setCustomerSearchTerm(previousCustomer ? previousCustomer.name : '');
+        setShowCustomerDropdown(false);
+        return;
+      }
+    }
+    resetForm(customer);
+    
+    // Tutup dropdown setelah memilih
     setShowCustomerDropdown(false);
   };
 
+  const openNewOrderForm = () => {
+    resetForm(); // Panggil tanpa argumen untuk membersihkan semuanya
+    setIsDialogOpen(true); // Ganti ini sesuai cara Anda membuka form
+  };
+
   const addItem = () => {
+    // 1. Validasi dasar: Pastikan produk telah dipilih dan kuantitas/harga valid.
     if (!newItem.product || !newItem.quantity || !newItem.unit_price) {
       toast({
-        title: "Error",
-        description: "Please fill in all item fields",
+        title: "Input Incomplete",
+        description: "Please select a product and ensure quantity/price are filled.",
+        variant: "destructive",
+      });
+      return; // Hentikan fungsi jika validasi gagal.
+    }
+
+    // 2. Konversi nilai dari string ke number untuk kalkulasi dan perbandingan.
+    const quantity = parseFloat(newItem.quantity);
+    const unitPrice = parseFloat(newItem.unit_price);
+    const discountPercentage = parseFloat(newItem.discount_percentage);
+
+    // Lakukan validasi tambahan untuk nilai numerik.
+    if (isNaN(quantity) || quantity <= 0) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Quantity must be a number greater than 0.",
         variant: "destructive",
       });
       return;
     }
 
-    const quantity = parseFloat(newItem.quantity);
-    const unitPrice = parseFloat(newItem.unit_price);
-    const discountPercentage = parseFloat(newItem.discount_percentage);
-    
+    // 3. Hitung total baris untuk item yang akan ditambahkan/diperbarui.
     const subtotal = quantity * unitPrice;
     const discountAmount = (subtotal * discountPercentage) / 100;
     const lineTotal = subtotal - discountAmount;
 
-    const item = {
+    // Buat objek item yang bersih dengan data yang sudah diproses.
+    const processedNewItem = {
       ...newItem,
       quantity,
       unit_price: unitPrice,
@@ -237,11 +296,59 @@ const CreateSalesOrder = () => {
       line_total: lineTotal
     };
 
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, item]
-    }));
+    // 4. Cek apakah produk dengan ID yang sama sudah ada di dalam daftar `items`.
+    const existingItemIndex = formData.items.findIndex(
+      (item) => item.product === processedNewItem.product
+    );
 
+    // 5. Jika produk sudah ada (indeksnya bukan -1)...
+    if (existingItemIndex !== -1) {
+      // Tampilkan dialog konfirmasi kepada pengguna.
+      const isConfirmed = window.confirm(
+        `"${newItem.product_name}" is already in the order. Do you want to replace the existing entry with the new one?`
+      );
+
+      // Jika pengguna menekan "OK" (Yes)...
+      if (isConfirmed) {
+        // Buat salinan dari array `items` untuk menghindari mutasi state langsung.
+        const updatedItems = [...formData.items];
+        
+        // Ganti item lama pada indeks yang ditemukan dengan data item yang baru.
+        updatedItems[existingItemIndex] = processedNewItem;
+        
+        // Update state `formData` dengan array `items` yang sudah diperbarui.
+        setFormData(prev => ({
+          ...prev,
+          items: updatedItems
+        }));
+
+        toast({
+          title: "Item Replaced",
+          description: `"${newItem.product_name}" has been updated in the order.`,
+        });
+
+      } else {
+        // Jika pengguna menekan "Cancel" (No), jangan lakukan apa-apa pada daftar item.
+        // Cukup reset form `newItem` agar pengguna bisa memilih produk lain.
+        setNewItem({
+          product: '',
+          product_name: '',
+          quantity: '1',
+          unit_price: '0',
+          discount_percentage: '0'
+        });
+        return; // Hentikan eksekusi fungsi lebih lanjut.
+      }
+
+    } else {
+      // 6. Jika produk belum ada, tambahkan item baru ke dalam array `items`.
+      setFormData(prev => ({
+        ...prev,
+        items: [...prev.items, processedNewItem]
+      }));
+    }
+
+    // 7. Setelah item berhasil ditambahkan atau diganti, reset form `newItem` ke kondisi awal.
     setNewItem({
       product: '',
       product_name: '',
@@ -249,7 +356,6 @@ const CreateSalesOrder = () => {
       unit_price: '0',
       discount_percentage: '0'
     });
-    setProductSearchTerm('');
   };
 
   const removeItem = (index) => {
@@ -301,8 +407,8 @@ const CreateSalesOrder = () => {
     try {
       const token = localStorage.getItem('token');
       const url = editingOrder 
-        ? `http://localhost:8000/api/sales/sales-orders/${editingOrder.id}/`
-        : 'http://localhost:8000/api/sales/sales-orders/';
+        ? `${API_BASE_URL}/sales/sales-orders/${editingOrder.id}/`
+        : `${API_BASE_URL}/sales/sales-orders/`;
       
       const method = editingOrder ? 'PUT' : 'POST';
 
@@ -357,10 +463,10 @@ const CreateSalesOrder = () => {
     setEditingOrder(order);
     setFormData({
       customer: order.customer,
-      due_date: order.due_date || '',
+      due_date: order.due_date ? order.due_date.split('T')[0] : getTodayDateString(),
       status: order.status,
       discount_percentage: order.discount_percentage?.toString() || '0',
-      tax_percentage: order.tax_percentage?.toString() || '11',
+      tax_percentage: order.tax_percentage?.toString() || '0',
       shipping_cost: order.shipping_cost?.toString() || '0',
       notes: order.notes || '',
       items: order.items || []
@@ -376,7 +482,7 @@ const CreateSalesOrder = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/sales/sales-orders/${orderId}/`, {
+      const response = await fetch(`${API_BASE_URL}/sales/sales-orders/${orderId}/`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Token ${token}`,
@@ -406,16 +512,13 @@ const CreateSalesOrder = () => {
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (newCustomer = null) => {
     setFormData({
-      customer: '',
-      due_date: '',
-      status: 'DRAFT',
-      discount_percentage: '0',
-      tax_percentage: '11',
-      shipping_cost: '0',
-      notes: '',
-      items: []
+      ...initialFormState,
+      // Jika ada customer baru yang di-pass, langsung set di sini
+      customer: newCustomer ? newCustomer.id : '',
+      // Terapkan juga diskon default dari customer baru
+      discount_percentage: newCustomer?.customer_group?.discount_percentage?.toString() || '0'
     });
     setNewItem({
       product: '',
@@ -425,8 +528,7 @@ const CreateSalesOrder = () => {
       discount_percentage: '0'
     });
     setEditingOrder(null);
-    setCustomerSearchTerm('');
-    setProductSearchTerm('');
+    setCustomerSearchTerm(newCustomer ? newCustomer.name : '');
   };
 
   const formatCurrency = (amount) => {
@@ -459,9 +561,6 @@ const CreateSalesOrder = () => {
         <h1 className="text-3xl font-bold">Create Sales Order</h1>
       </div>
       <Card>
-        <CardHeader>
-          &nbsp;
-        </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Customer Selection */}
@@ -516,39 +615,20 @@ const CreateSalesOrder = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div className="space-y-2 relative">
+                  <div className="md:col-span-2 space-y-2"> {/* Beri ruang lebih lebar */}
                     <Label>Product *</Label>
-                    <Input
-                      placeholder="Search product..."
-                      value={productSearchTerm}
-                      onChange={(e) => {
-                        setProductSearchTerm(e.target.value);
-                        setNewItem(prev => ({ ...prev, product: '', product_name: '' }));
-                      }}
+                    <ProductSearchDropdown
+                      value={newItem.product_name}
+                      onSelect={handleProductSelect}
+                      placeholder="Search product by name or SKU..."
                     />
-                    {showProductDropdown && products.length > 0 && (
-                      <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {products.map(product => (
-                          <div
-                            key={product.id}
-                            className="p-2 hover:bg-gray-100 cursor-pointer"
-                            onClick={() => selectProduct(product)}
-                          >
-                            <div className="font-medium">{product.name}</div>
-                            <div className="text-sm text-gray-500">
-                              SKU: {product.sku} | Stock: {product.stock_quantity} | {formatCurrency(product.price)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Quantity</Label>
                     <Input
                       type="number"
-                      min="0.01"
-                      step="0.01"
+                      min="1"
+                      step="1"
                       value={newItem.quantity}
                       onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
                     />
@@ -558,9 +638,9 @@ const CreateSalesOrder = () => {
                     <Input
                       type="number"
                       min="0"
-                      step="0.01"
                       value={newItem.unit_price}
                       onChange={(e) => setNewItem(prev => ({ ...prev, unit_price: e.target.value }))}
+                      readOnly 
                     />
                   </div>
                   <div className="space-y-2">
@@ -572,10 +652,10 @@ const CreateSalesOrder = () => {
                       step="0.01"
                       value={newItem.discount_percentage}
                       onChange={(e) => setNewItem(prev => ({ ...prev, discount_percentage: e.target.value }))}
+                      readOnly
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>&nbsp;</Label>
+                  <div className="space-y-2 self-end">
                     <Button type="button" onClick={addItem} className="w-full">
                       Add Item
                     </Button>
@@ -741,95 +821,6 @@ const CreateSalesOrder = () => {
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Orders</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Search className="h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-4">Loading sales orders...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <ShoppingCart className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium">{order.order_number || `SO-${order.id}`}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4 text-gray-400" />
-                        <span>{order.customer_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>{new Date(order.order_date).toLocaleDateString('id-ID')}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(order.status)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Package className="h-4 w-4 text-gray-400" />
-                        <span>{order.item_count || 0} items</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{order.total_amount_formatted || formatCurrency(order.total_amount || 0)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(order)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(order.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
         </CardContent>
       </Card>
     </div>

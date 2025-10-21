@@ -75,6 +75,7 @@ const GoodsReceiptManagement = ( ) => {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const { toast } = useToast();
 
+  const [assemblyOrders, setAssemblyOrders] = useState([]);
   const [receiptMode, setReceiptMode] = useState('from-po');
 
   const initialFormState = {
@@ -111,9 +112,10 @@ const GoodsReceiptManagement = ( ) => {
     const fetchSupportingData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const [poRes, locRes] = await Promise.all([
+        const [poRes, locRes, aoRes] = await Promise.all([
           fetch(`${API_BASE_URL}/inventory/goods-receipts/available_purchase_orders/`, { headers: { 'Authorization': `Token ${token}` } }),
-          fetch(`${API_BASE_URL}/inventory/locations/?is_purchasable_location=true`, { headers: { 'Authorization': `Token ${token}` } })
+          fetch(`${API_BASE_URL}/inventory/locations/?is_purchasable_location=true`, { headers: { 'Authorization': `Token ${token}` } }),
+          fetch(`${API_BASE_URL}/inventory/goods-receipts/available_assembly_orders/`, { headers: { 'Authorization': `Token ${token}` } })
         ]);
         
         if (!poRes.ok) throw new Error('Failed to fetch Purchase Orders.');
@@ -122,14 +124,16 @@ const GoodsReceiptManagement = ( ) => {
         if (!locRes.ok) throw new Error('Failed to fetch Locations.');
         const locData = await locRes.json();
 
+        if (!aoRes.ok) throw new Error('Failed to fetch Assembly Orders.');
+        const aoData = await aoRes.json();
+        setAssemblyOrders(Array.isArray(aoData) ? aoData : aoData.results || []);
+
         // **FIX**: Handle both direct array and paginated DRF responses
         setPurchaseOrders(Array.isArray(poData) ? poData : poData.results || []);
         setLocations(Array.isArray(locData.results) ? locData.results : Array.isArray(locData) ? locData : []);
 
       } catch (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        setPurchaseOrders([]);
-        setLocations([]);
       }
     };
     fetchSupportingData();
@@ -209,6 +213,33 @@ const GoodsReceiptManagement = ( ) => {
     }
   };
 
+  const handleAOSelection = (aoId) => {
+    const ao = assemblyOrders.find(a => a.id === parseInt(aoId));
+    if (ao) {
+      // Buat item dari produk jadi Assembly Order
+      const itemFromAO = {
+        temp_id: `ao_item_${ao.id}`,
+        assembly_order_item: null, // Tidak ada item spesifik, hanya order utama
+        product: ao.product,
+        product_name: ao.product_name,
+        product_sku: ao.product_sku,
+        // Kuantitas yang diorder adalah sisa yang belum diterima
+        quantity_ordered: parseFloat(ao.quantity) - parseFloat(ao.quantity_received || 0),
+        quantity_received: 0,
+        unit_price: ao.cost_price || 0, // Gunakan cost price dari produk
+      };
+      setFormData(prev => ({
+        ...prev,
+        assembly_order: ao.id, // Simpan ID Assembly Order
+        purchase_order: null,
+        supplier: null, // Tidak ada supplier
+        notes: `Receipt for Assembly Order #${ao.order_number}`,
+        items: [itemFromAO], // Hanya ada satu item yaitu produk jadi
+        location: ao.production_location ? ao.production_location.toString() : '',
+      }));
+    }
+  };
+
   const updateItem = (index, field, value) => {
     const updatedItems = [...formData.items];
     const numValue = Number(value);
@@ -258,27 +289,25 @@ const GoodsReceiptManagement = ( ) => {
     try {
       const token = localStorage.getItem('token');
       const isManualMode = receiptMode === 'manual';
+      const isFromPO = receiptMode === 'from-po';
+      const isFromAO = receiptMode === 'from-assembly';
       const payload = {
-        purchase_order: isManualMode ? null : formData.purchase_order,
-        supplier: formData.supplier || null, // <-- Kirim ID supplier
         location: formData.location,
         notes: formData.notes,
-        items: itemsToSubmit.map(item => {
-          const quantityReceived = Number(item.quantity_received);
-          
-          // **FIX DI SINI**
-          return {
-            product: item.product,
-            quantity_received: quantityReceived,
-            unit_price: Number(item.unit_price),
-            // Jika manual, set quantity_ordered sama dengan quantity_received.
-            // Jika dari PO, gunakan quantity_ordered yang sudah ada.
-            quantity_ordered: isManualMode ? quantityReceived : item.quantity_ordered, 
-            
-            // Kirim purchase_order_item hanya jika mode PO
-            ...(!isManualMode && { purchase_order_item: item.purchase_order_item })
-          };
-        }),
+        // Atur field sumber berdasarkan mode
+        purchase_order: isFromPO ? formData.purchase_order : null,
+        assembly_order: isFromAO ? formData.assembly_order : null,
+        supplier: isManualMode ? (formData.supplier || null) : null,
+        
+        items: itemsToSubmit.map(item => ({
+          product: item.product,
+          quantity_received: Number(item.quantity_received),
+          unit_price: Number(item.unit_price),
+          quantity_ordered: isManualMode ? Number(item.quantity_received) : item.quantity_ordered,
+          // Kirim relasi ke item sumber jika ada
+          ...(isFromPO && { purchase_order_item: item.purchase_order_item }),
+          ...(isFromAO && { assembly_order_item: item.assembly_order_item }), // Jika perlu
+        })),
       };
       
       const response = await fetch(`${API_BASE_URL}/inventory/goods-receipts/`, {
@@ -331,30 +360,16 @@ const GoodsReceiptManagement = ( ) => {
             </DialogHeader>
             <Tabs value={receiptMode} onValueChange={handleModeChange} className="flex-grow overflow-y-auto">
               <div className="px-6 pt-4">
-                <TabsList className="w-full grid grid-cols-2">
+                <TabsList className="w-full grid grid-cols-3">
                   <TabsTrigger value="from-po">From Purchase Order</TabsTrigger>
                   <TabsTrigger value="manual">Manual Receipt</TabsTrigger>
+                  <TabsTrigger value="from-assembly">From Assembly</TabsTrigger>
                 </TabsList>
               </div>
 
               <div className="px-6 py-4 space-y-6">
-                {/* Form Header - Lokasi dipindahkan ke sini agar global */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Receive To Location</Label>
-                        <Select value={formData.location} onValueChange={v => setFormData(p => ({...p, location: v}))}>
-                            <SelectTrigger><SelectValue placeholder="Select location..." /></SelectTrigger>
-                            <SelectContent>{locations.map(l => <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Notes</Label>
-                        <Textarea value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
-                    </div>
-                </div>
-
                 {/* Konten untuk setiap tab */}
-                <TabsContent value="from-po" className="mt-0 space-y-4">
+                <TabsContent value="from-po" className="mt-0 space-y-8">
                   <div className="space-y-2">
                     <Label>Select Purchase Order</Label>
                     <Select onValueChange={handlePOSelection}>
@@ -372,7 +387,7 @@ const GoodsReceiptManagement = ( ) => {
                             <TableRow key={item.temp_id}>
                               <TableCell><div className="font-medium">{item.product_name}</div><div className="text-sm text-muted-foreground">{item.product_sku}</div></TableCell>
                               <TableCell className="text-right">{item.quantity_remaining}</TableCell>
-                              <TableCell><Input type="number" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
+                              <TableCell><Input type="text" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -381,7 +396,7 @@ const GoodsReceiptManagement = ( ) => {
                   )}
                 </TabsContent>
 
-                <TabsContent value="manual" className="mt-0 space-y-4">
+                <TabsContent value="manual" className="mt-0 space-y-8">
                   <div className="space-y-2">
                     <Label>Supplier (Optional)</Label>
                     <SupplierSelector 
@@ -402,8 +417,8 @@ const GoodsReceiptManagement = ( ) => {
                           {formData.items.map((item, index) => (
                             <TableRow key={item.temp_id}>
                               <TableCell><div className="font-medium">{item.product_name}</div><div className="text-sm text-muted-foreground">{item.product_sku}</div></TableCell>
-                              <TableCell><Input type="number" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
-                              <TableCell><Input type="number" value={item.unit_price} onChange={e => updateItem(index, 'unit_price', e.target.value)} className="w-28" min="0" step="0.01" /></TableCell>
+                              <TableCell><Input type="text" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
+                              <TableCell><Input type="text" value={item.unit_price} onChange={e => updateItem(index, 'unit_price', e.target.value)} className="w-28" min="0" /></TableCell>
                               <TableCell><Button variant="destructive" size="icon" onClick={() => handleRemoveItem(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
                             </TableRow>
                           ))}
@@ -412,6 +427,54 @@ const GoodsReceiptManagement = ( ) => {
                     </div>
                   )}
                 </TabsContent>
+                <TabsContent value="from-assembly" className="mt-0 space-y-8">
+                  <div className="space-y-2">
+                    <Label>Select Assembly Order</Label>
+                    <Select onValueChange={handleAOSelection}>
+                      <SelectTrigger><SelectValue placeholder="Select an Assembly Order to receive..." /></SelectTrigger>
+                      <SelectContent>
+                        {assemblyOrders.map(ao => (
+                          <SelectItem key={ao.id} value={ao.id.toString()}>
+                            {ao.order_number} - {ao.product_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Tabel Item untuk Assembly */}
+                  {formData.items.length > 0 && formData.assembly_order && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader><TableRow><TableHead>Finished Product</TableHead><TableHead className="text-right">Remaining to Receive</TableHead><TableHead>Receive Qty</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {formData.items.map((item, index) => (
+                            <TableRow key={item.temp_id}>
+                              <TableCell><div className="font-medium">{item.product_name}</div><div className="text-sm text-muted-foreground">{item.product_sku}</div></TableCell>
+                              <TableCell className="text-right">{item.quantity_ordered}</TableCell>
+                              <TableCell><Input type="text" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+                {/* Form Header - Lokasi dipindahkan ke sini agar global */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Receive To Location</Label>
+                        <Select value={formData.location} onValueChange={v => setFormData(p => ({...p, location: v}))}>
+                            <SelectTrigger><SelectValue placeholder="Select location..." /></SelectTrigger>
+                            <SelectContent>
+                            {locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>))}                            
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Notes</Label>
+                        <Textarea value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />
+                    </div>
+                </div>
               </div>
             </Tabs>
 
@@ -426,14 +489,17 @@ const GoodsReceiptManagement = ( ) => {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Receipt History</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Receipt History</CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Receipt #</TableHead>
-                <TableHead>PO #</TableHead>
-                <TableHead>Supplier</TableHead>
+                {/* 1. Ubah nama kolom menjadi lebih generik */}
+                <TableHead>Source Document</TableHead>
+                <TableHead>Source/Supplier</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -441,24 +507,62 @@ const GoodsReceiptManagement = ( ) => {
             </TableHeader>
             <TableBody>
               {loading && goodsReceipts.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Loading...
+                  </TableCell>
+                </TableRow>
               ) : goodsReceipts.length > 0 ? (
-                goodsReceipts.map((receipt) => (
-                  <TableRow key={receipt.id}>
-                    <TableCell className="font-medium">{receipt.receipt_number || 'N/A'}</TableCell>
-                    <TableCell>{receipt.purchase_order_number || 'N/A'}</TableCell>
-                    <TableCell>{receipt.supplier_name || 'Manual Input'}</TableCell>
-                    <TableCell>{new Date(receipt.receipt_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{getStatusBadge(receipt.status)}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => handleViewReceipt(receipt)}>
-                        <Eye className="mr-1 h-3 w-3" /> View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                goodsReceipts.map((receipt) => {
+                  // --- 2. Tambahkan Logika untuk Menentukan Sumber ---
+                  let sourceDoc = 'N/A';
+                  let sourceName = 'Manual Input';
+
+                  if (receipt.purchase_order_number) {
+                    sourceDoc = receipt.purchase_order_number;
+                    sourceName = receipt.supplier_name || 'N/A';
+                  } else if (receipt.assembly_order_number) {
+                    sourceDoc = receipt.assembly_order_number;
+                    sourceName = 'Internal Production'; // Atau 'From Assembly'
+                  } else if (receipt.supplier_name) {
+                    // Ini untuk kasus manual receipt yang memiliki supplier
+                    sourceName = receipt.supplier_name;
+                  }
+                  // ----------------------------------------------------
+
+                  return (
+                    <TableRow key={receipt.id}>
+                      <TableCell className="font-medium">
+                        {receipt.receipt_number || 'N/A'}
+                      </TableCell>
+                      
+                      {/* --- 3. Render data yang sudah diproses --- */}
+                      <TableCell>{sourceDoc}</TableCell>
+                      <TableCell>{sourceName}</TableCell>
+                      {/* ------------------------------------------- */}
+
+                      <TableCell>
+                        {new Date(receipt.receipt_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(receipt.status)}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewReceipt(receipt)}
+                        >
+                          <Eye className="mr-1 h-3 w-3" /> View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">No goods receipts found.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No goods receipts found.
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
@@ -468,101 +572,129 @@ const GoodsReceiptManagement = ( ) => {
         <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col p-0">
           {selectedReceipt && (
             <>
-              <DialogHeader className="p-6 pb-4 border-b">
-                <DialogTitle>
-                  Details for Receipt: {selectedReceipt.receipt_number}
-                </DialogTitle>
-              </DialogHeader>
+              {/* --- 1. Tambahkan Logika untuk Menentukan Sumber di Sini --- */}
+              {(() => {
+                let sourceDocLabel = 'Source Document';
+                let sourceDocValue = 'N/A';
+                let sourceNameLabel = 'Source/Supplier';
+                let sourceNameValue = 'Manual Input';
 
-              <div className="flex-grow overflow-y-auto p-6 space-y-6">
-                {/* Informasi Header */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Supplier</Label>
-                    <p className="font-medium">{selectedReceipt.supplier_name || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Purchase Order #</Label>
-                    <p className="font-medium">{selectedReceipt.purchase_order_number || 'Manual Receipt'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Status</Label>
-                    <div>{getStatusBadge(selectedReceipt.status)}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Receive Date</Label>
-                    <p className="font-medium">{new Date(selectedReceipt.receipt_date).toLocaleDateString()}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Received By</Label>
-                    <p className="font-medium">{selectedReceipt.received_by_name || 'N/A'}</p>
-                  </div>
-                   <div className="space-y-1">
-                    <Label className="text-sm text-muted-foreground">Received At</Label>
-                    <p className="font-medium">{selectedReceipt.location_name || 'N/A'}</p>
-                  </div>
-                </div>
+                if (selectedReceipt.purchase_order_number) {
+                  sourceDocLabel = 'Purchase Order #';
+                  sourceDocValue = selectedReceipt.purchase_order_number;
+                  sourceNameLabel = 'Supplier';
+                  sourceNameValue = selectedReceipt.supplier_name || 'N/A';
+                } else if (selectedReceipt.assembly_order_number) {
+                  sourceDocLabel = 'Assembly Order #';
+                  sourceDocValue = selectedReceipt.assembly_order_number;
+                  sourceNameLabel = 'Source';
+                  sourceNameValue = 'Internal Production';
+                } else if (selectedReceipt.supplier_name) {
+                  sourceNameLabel = 'Supplier';
+                  sourceNameValue = selectedReceipt.supplier_name;
+                }
 
-                {/* Catatan/Notes */}
-                {selectedReceipt.notes && (
-                    <div className="space-y-1">
-                        <Label className="text-sm text-muted-foreground">Notes</Label>
-                        <p className="p-3 bg-slate-50 rounded-md border text-sm">{selectedReceipt.notes}</p>
+                // Kita akan mengembalikan JSX yang menggunakan variabel-variabel ini
+                return (
+                  <>
+                    <DialogHeader className="p-6 pb-4 border-b">
+                      <DialogTitle>
+                        Details for Receipt: {selectedReceipt.receipt_number}
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="flex-grow overflow-y-auto p-6 space-y-6">
+                      {/* --- 2. Gunakan Variabel yang Sudah Diproses di Sini --- */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">{sourceNameLabel}</Label>
+                          <p className="font-medium">{sourceNameValue}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">{sourceDocLabel}</Label>
+                          <p className="font-medium">{sourceDocValue}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">Status</Label>
+                          <div>{getStatusBadge(selectedReceipt.status)}</div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">Receive Date</Label>
+                          <p className="font-medium">{new Date(selectedReceipt.receipt_date).toLocaleDateString()}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">Received By</Label>
+                          <p className="font-medium">{selectedReceipt.received_by_name || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-sm text-muted-foreground">Received At</Label>
+                          <p className="font-medium">{selectedReceipt.location_name || 'N/A'}</p>
+                        </div>
+                      </div>
+
+                      {/* Catatan/Notes */}
+                      {selectedReceipt.notes && (
+                          <div className="space-y-1">
+                              <Label className="text-sm text-muted-foreground">Notes</Label>
+                              <p className="p-3 bg-slate-50 rounded-md border text-sm">{selectedReceipt.notes}</p>
+                          </div>
+                      )}
+
+                      {/* Tabel Item */}
+                      <div>
+                        <h3 className="font-semibold mb-2">Items Received</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Product</TableHead>
+                                <TableHead className="text-right">Qty Ordered</TableHead>
+                                <TableHead className="text-right">Qty Received</TableHead>
+                                <TableHead className="text-right">Unit Price</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {selectedReceipt.items.map(item => (
+                                <TableRow key={item.id}>
+                                  <TableCell>
+                                    <div className="font-medium">{item.product_name}</div>
+                                    <div className="text-sm text-muted-foreground">{item.product_sku}</div>
+                                  </TableCell>
+                                  <TableCell className="text-right">{item.quantity_ordered}</TableCell>
+                                  <TableCell className="text-right font-semibold">{item.quantity_received}</TableCell>
+                                  <TableCell className="text-right">
+                                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.unit_price || 0)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
                     </div>
-                )}
 
-                {/* Tabel Item */}
-                <div>
-                  <h3 className="font-semibold mb-2">Items Received</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead className="text-right">Qty Ordered</TableHead>
-                          <TableHead className="text-right">Qty Received</TableHead>
-                          <TableHead className="text-right">Unit Price</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedReceipt.items.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <div className="font-medium">{item.product_name}</div>
-                              <div className="text-sm text-muted-foreground">{item.product_sku}</div>
-                            </TableCell>
-                            <TableCell className="text-right">{item.quantity_ordered}</TableCell>
-                            <TableCell className="text-right font-semibold">{item.quantity_received}</TableCell>
-                            <TableCell className="text-right">
-                              {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.unit_price || 0)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter className="p-6 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                  <X className="mr-2 h-4 w-4" /> Close
-                </Button>
-                {selectedReceipt.status === 'DRAFT' && (
-                  <Button 
-                    onClick={handleConfirmReceipt} 
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {loading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                    )}
-                    Confirm Receipt & Update Stock
-                  </Button>
-                )}
-              </DialogFooter>
+                    <DialogFooter className="p-6 pt-4 border-t">
+                      <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                        <X className="mr-2 h-4 w-4" /> Close
+                      </Button>
+                      {selectedReceipt.status === 'DRAFT' && (
+                        <Button 
+                          onClick={handleConfirmReceipt} 
+                          disabled={loading}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {loading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                          )}
+                          Confirm Receipt & Update Stock
+                        </Button>
+                      )}
+                    </DialogFooter>
+                  </>
+                );
+              })()}
             </>
           )}
         </DialogContent>

@@ -6,6 +6,8 @@ import { useToast } from "../../hooks/use-toast";
 import { History, TrendingUp, TrendingDown, AlertTriangle, Search, Package, DollarSign, Archive } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { useAuth } from '../../contexts/AuthContext';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -27,14 +29,147 @@ const parseRupiah = (rupiahString) => {
   return parseInt(rupiahString.replace(/[^0-9]/g, '')) || 0;
 };
 
+const HistoryDialog = ({ isOpen, onClose, stockItem, token }) => {
+  const [historyData, setHistoryData] = useState({
+    opening_balance: 0,
+    closing_balance: 0,
+    movements: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState({
+    start_date: '',
+    end_date: '',
+  });
+
+  const fetchHistory = useCallback(async (currentFilters) => {
+    if (!stockItem) return;
+    setLoading(true);
+    
+    // Buat URL dengan query parameter
+    const params = new URLSearchParams();
+    if (currentFilters.start_date) params.append('start_date', currentFilters.start_date);
+    if (currentFilters.end_date) params.append('end_date', currentFilters.end_date);
+    const queryString = params.toString();
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/inventory/stock/${stockItem.id}/history/?${queryString}`, {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch history');
+      const data = await response.json();
+      // --- Simpan seluruh objek respons ---
+      setHistoryData(data); 
+    } catch (error) {
+      console.error("History fetch error:", error);
+      setHistoryData({ opening_balance: 0, closing_balance: 0, movements: [] });
+    } finally {
+      setLoading(false);
+    }
+  }, [stockItem, token]);
+
+  useEffect(() => {
+    // Ambil data awal saat dialog dibuka
+    if (isOpen) {
+      fetchHistory(filters);
+    }
+  }, [isOpen, fetchHistory]);
+  
+  const handleFilterChange = (e) => {
+    setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const applyFilters = () => {
+    fetchHistory(filters);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Transaction History</DialogTitle>
+          {stockItem && (
+            <DialogDescription>
+              For: {stockItem.product_name} ({stockItem.product_sku}) at {stockItem.location_name}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        
+        {/* Area Filter */}
+        <div className="flex gap-4 items-end p-4 border-b">
+          <div className="grid gap-2">
+            <Label htmlFor="start_date">Start Date</Label>
+            <Input type="date" id="start_date" name="start_date" value={filters.start_date} onChange={handleFilterChange} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="end_date">End Date</Label>
+            <Input type="date" id="end_date" name="end_date" value={filters.end_date} onChange={handleFilterChange} />
+          </div>
+          <Button onClick={applyFilters} disabled={loading}>
+            {loading ? 'Filtering...' : 'Apply Filter'}
+          </Button>
+        </div>
+
+        {/* Tabel History */}
+        <div className="flex-grow overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50 dark:bg-gray-800">
+                <TableCell colSpan={2} className="font-bold">Opening Balance</TableCell>
+                <TableCell className="text-right font-bold">{historyData.opening_balance}</TableCell>
+                <TableCell colSpan={2}></TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5} className="h-24 text-center">Loading history...</TableCell></TableRow>
+              ) : historyData.movements.length > 0 ? (
+                historyData.movements.map(move => (
+                  <TableRow key={move.id}>
+                    <TableCell>{new Date(move.movement_date).toLocaleString()}</TableCell>
+                    <TableCell>{move.movement_type}</TableCell>
+                    <TableCell className={`text-right font-bold ${move.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {move.quantity > 0 ? '+' : ''}{move.quantity}
+                    </TableCell>
+                    <TableCell>{move.reference_number || 'N/A'}</TableCell>
+                    <TableCell>{move.user_name || 'System'}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions found for this period.</TableCell></TableRow>
+              )}
+              {!loading && (
+                <TableRow className="bg-gray-100 dark:bg-gray-900 border-t-2">
+                  <TableCell colSpan={2} className="font-bold">Closing Balance</TableCell>
+                  <TableCell className="text-right font-bold">{historyData.closing_balance}</TableCell>
+                  <TableCell colSpan={2}></TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const StockManagement = () => {
   const [stockRecords, setStockRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { token } = useAuth();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedStock, setSelectedStock] = useState(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [initialLoad, setInitialLoad] = useState(true);
+
+  const handleViewHistory = (stockItem) => {
+    setSelectedStock(stockItem);
+    setIsHistoryOpen(true);
+  };
 
   const fetchCriticalStock = useCallback(async () => {
     setLoading(true);
@@ -206,7 +341,7 @@ const StockManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleViewHistory(stock)}>
                         <History className="mr-1 h-4 w-4" /> History
                       </Button>
                     </TableCell>
@@ -223,6 +358,12 @@ const StockManagement = () => {
           </TableBody>
         </Table>
       </div>
+      <HistoryDialog 
+        isOpen={isHistoryOpen} 
+        onClose={() => setIsHistoryOpen(false)} 
+        stockItem={selectedStock}
+        token={token}
+      />
     </div>
   );
 };

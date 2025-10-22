@@ -205,59 +205,12 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col z-10">
-        <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm">
-          {/* Logo */}
-          <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">Orchid ERP</h1>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <div className="flex-1 flex flex-col min-h-100">
-            <div className="flex-1 px-4 py-6 overflow-y-auto">
-              <NavigationItems />
-            </div>
-
-            {/* User Info */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {getUserInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {user?.full_name || user?.username}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.role_display || 'User'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <div className="flex flex-col h-full bg-white dark:bg-gray-800">
-            {/* Logo */}
+        
+        {/* 1. Desktop Sidebar */}
+        {/* Ditempatkan di luar Sheet Content/Trigger karena logikanya terpisah */}
+        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col z-20">
+          <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -268,60 +221,58 @@ export default function Layout({ children }) {
                 </div>
               </div>
             </div>
-
-            {/* Navigation */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex-1 px-4 py-6 overflow-y-auto">
-                <NavigationItems mobile onItemClick={() => setSidebarOpen(false)} />
-              </div>
+            <div className="flex-1 px-4 py-6 overflow-y-auto">
+              <NavigationItems />
             </div>
+          </div>
+        </div>
 
-            {/* User Info */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
+        {/* 2. Mobile Sidebar Content */}
+        {/* Ini adalah konten yang akan muncul saat sidebar mobile aktif */}
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="flex flex-col h-full bg-white dark:bg-gray-800">
+            <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {getUserInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {user?.full_name || user?.username}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.role_display || 'User'}
-                  </p>
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">Orchid ERP</h1>
                 </div>
               </div>
+            </div>
+            <div className="flex-1 px-4 py-6 overflow-y-auto">
+              <NavigationItems mobile onItemClick={() => setSidebarOpen(false)} />
             </div>
           </div>
         </SheetContent>
-      </Sheet>
 
-      {/* Main Content */}
-      <div className="lg:pl-64 flex flex-col flex-1 -translate-y-8">
-        {/* Top Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              {/* Mobile menu button */}
-              <div className="flex items-center lg:hidden">
+        {/* 3. Main Content Area */}
+        {/* Semua konten utama, termasuk header, ada di sini */}
+        <div className="lg:pl-64 flex flex-col flex-1">
+          <header className="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <div className="px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16">
                 
-              </div>
-
-              {/* Search and Actions */}
-              <div className="flex-1 flex justify-between items-center lg:ml-0 ml-4">
-                <div className="flex-1 max-w-lg">
-                  {/* Search can be added here */}
+                {/* Mobile Menu Trigger */}
+                {/* Tombol ini hanya muncul di layar kecil (lg:hidden) */}
+                <div className="lg:hidden">
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Menu className="h-6 w-6" />
+                    </Button>
+                  </SheetTrigger>
                 </div>
 
-                <div className="flex items-center space-x-4">
-                  {/* Notifications */}
-                  <Button variant="ghost" size="sm">
+                {/* Spacer untuk mendorong item ke kanan di desktop */}
+                <div className="hidden lg:block w-full"></div>
+
+                {/* Actions (Notifications, User Menu) */}
+                <div className="flex items-center space-x-4 ml-auto">
+                  <Button variant="ghost" size="icon">
                     <Bell className="h-5 w-5" />
                   </Button>
 
-                  {/* User Menu */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -358,14 +309,13 @@ export default function Layout({ children }) {
                 </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Page Content */}
-        <main className="flex-1 mx-2">
-          {children}
-        </main>
-      </div>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            {children}
+          </main>
+        </div>
+      </Sheet>
     </div>
   )
 }

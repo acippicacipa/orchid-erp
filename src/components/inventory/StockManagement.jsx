@@ -247,11 +247,11 @@ const StockManagement = () => {
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h2 className="text-3xl font-bold tracking-tight mb-8">Stock Management</h2>
+    <div className="container mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight mb-2">Stock Management</h2>
 
       {/* 4. Kartu Ringkasan (Summary Cards) */}
-      <div className="grid gap-4 md:grid-cols-3 mb-8">
+      <div className="grid gap-4 md:grid-cols-3 mb-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>

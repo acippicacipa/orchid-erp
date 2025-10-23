@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 // ... (impor komponen lainnya tetap sama)
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from "../ui/textarea";
 import { Checkbox } from "../ui/checkbox";
 import { useToast } from "../../hooks/use-toast";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Search } from "lucide-react"; // Import ikon Search
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -46,6 +47,8 @@ const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [mainCategories, setMainCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const initialProductState = {
     name: '',
@@ -59,6 +62,7 @@ const ProductManagement = () => {
     model: '',
     cost_price: '',
     selling_price: '',
+    discount: '0',
     unit_of_measure: 'pcs',
     weight: '',
     dimensions: '',
@@ -78,20 +82,14 @@ const ProductManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
-  // ... (useEffect dan fungsi fetch tetap sama) ...
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      await fetchProducts();
-      await fetchMainCategories();
-      await fetchSubCategories();
-    };
-    fetchInitialData();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async (query = '') => {
+    setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/inventory/products/`, {
+      // Tambahkan parameter 'search' ke URL jika ada query
+      const url = query ? `${API_BASE_URL}/inventory/products/?search=${query}` : `${API_BASE_URL}/inventory/products/`;
+      
+      const response = await fetch(url, {
         headers: { 'Authorization': `Token ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch products');
@@ -99,8 +97,24 @@ const ProductManagement = () => {
       setProducts(data.results || []);
     } catch (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    // Debouncing untuk efisiensi
+    const handler = setTimeout(() => {
+      fetchProducts(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm, fetchProducts]);
+
+  // ... (useEffect dan fungsi fetch tetap sama) ...
+  useEffect(() => {
+    fetchMainCategories();
+    fetchSubCategories();
+  }, []);
 
   const fetchMainCategories = async () => {
     try {
@@ -177,6 +191,7 @@ const ProductManagement = () => {
         sub_category: newProduct.sub_category === 'null' ? null : parseInt(newProduct.sub_category),
         cost_price: parseFloat(newProduct.cost_price || 0), // Kirim sebagai float
         selling_price: parseInt(newProduct.selling_price || 0), // Tetap integer
+        discount: parseFloat(newProduct.discount || 0), 
         minimum_stock_level: parseInt(newProduct.minimum_stock_level || 0),
         maximum_stock_level: newProduct.maximum_stock_level ? parseInt(newProduct.maximum_stock_level) : null,
         reorder_point: parseInt(newProduct.reorder_point || 0),
@@ -218,6 +233,7 @@ const ProductManagement = () => {
       model: product.model || '',
       cost_price: product.cost_price.toString(),
       selling_price: product.selling_price.toString(),
+      discount: product.discount?.toString() || '0', 
       unit_of_measure: product.unit_of_measure,
       weight: product.weight || '',
       dimensions: product.dimensions || '',
@@ -252,10 +268,9 @@ const ProductManagement = () => {
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h2 className="text-3xl font-bold tracking-tight mb-8">Product Management</h2>
-
-      <div className="flex justify-end mb-4">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Product Management</h2>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
@@ -265,7 +280,7 @@ const ProductManagement = () => {
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
+          <DialogContent className="sm:max-w-[600px] grid grid-rows-[auto_1fr_auto] h-[90vh] p-2">
             <DialogHeader className="p-6 pb-4">
               <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
             </DialogHeader>
@@ -370,6 +385,19 @@ const ProductManagement = () => {
                     required 
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="discount">Product Discount (%)</Label>
+                  <Input 
+                    id="discount" 
+                    name="discount" 
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={newProduct.discount} 
+                    onChange={handleInputChange} 
+                  />
+                </div>
                 
                 {/* ... (Sisa form lainnya tidak perlu diubah) ... */}
                 <div className="grid gap-2">
@@ -432,6 +460,19 @@ const ProductManagement = () => {
           </DialogContent>
         </Dialog>
       </div>
+      <div className="flex justify-end mb-4">
+        <div className="w-full max-w">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by product name or SKU..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-md border">
         <Table>
@@ -450,7 +491,7 @@ const ProductManagement = () => {
             {products.length > 0 ? (
               products.map(product => (
                 <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell className="font-medium">{product.name} {product.color}</TableCell>
                   <TableCell>{product.sku}</TableCell>
                   <TableCell>{product.main_category_name || 'N/A'}</TableCell>
                   <TableCell>{product.sub_category_name || 'N/A'}</TableCell>
@@ -469,7 +510,7 @@ const ProductManagement = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
-                  No products found.
+                  {searchTerm ? `No products found for "${searchTerm}".` : 'No products found.'}
                 </TableCell>
               </TableRow>
             )}

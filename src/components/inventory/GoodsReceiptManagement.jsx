@@ -527,6 +527,7 @@ const GoodsReceiptManagement = ( ) => {
                   } else if (receipt.supplier_name) {
                     // Ini untuk kasus manual receipt yang memiliki supplier
                     sourceName = receipt.supplier_name;
+                    sourceDoc = 'Manual Input';
                   }
                   // ----------------------------------------------------
 

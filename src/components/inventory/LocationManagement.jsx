@@ -187,10 +187,9 @@ const LocationManagement = ( ) => {
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h2 className="text-3xl font-bold tracking-tight mb-8">Location Management</h2>
-
-      <div className="flex justify-end mb-4">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Location Management</h2>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
@@ -287,7 +286,7 @@ const LocationManagement = ( ) => {
               <Button type="submit" form="location-form">Save Location</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>        
       </div>
 
       <div className="rounded-md border">

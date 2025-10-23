@@ -251,7 +251,23 @@ const CreateSalesOrder = () => {
       setNewItem(prev => ({
         ...prev,
         product: '',
-        product_name: '',
+        product_full_name: '',
+        unit_price: '0',
+        discount_percentage: '0'
+      }));
+    }
+  };
+
+  const handleProductNameChange = (text) => {
+    // Update teks yang ditampilkan di input
+    setNewItem(prev => ({ ...prev, product_full_name: text }));
+
+    // Jika teks diubah, kita harus menganggap produk belum dipilih.
+    // Kosongkan ID produk dan data terkait lainnya.
+    if (text !== newItem.product_full_name) {
+      setNewItem(prev => ({
+        ...prev,
+        product: '',
         unit_price: '0',
         discount_percentage: '0'
       }));
@@ -651,6 +667,7 @@ const CreateSalesOrder = () => {
                     <Label>Product *</Label>
                     <ProductSearchDropdown
                       value={newItem.product_full_name}
+                      onValueChange={handleProductNameChange}
                       onSelect={handleProductSelect}
                       placeholder="Search product by name or SKU..."
                     />

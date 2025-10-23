@@ -99,7 +99,7 @@ const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "
               </div>
             ))
           ) : (
-            searchTerm.length >= 2 && <div className="p-2 text-center text-sm text-gray-500">No products found.</div>
+            value && value.length >= 2 && <div className="p-2 text-center text-sm text-gray-500">No products found.</div>
           )}
         </div>
       )}

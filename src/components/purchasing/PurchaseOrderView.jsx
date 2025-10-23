@@ -45,8 +45,8 @@ export const PurchaseOrderView = React.forwardRef(({ order }, ref) => {
             {/* Ganti dengan logo perusahaan Anda atau hapus jika tidak ada */}
             {/* <img src="/logo.png" alt="Company Logo" className="h-16 w-16 mr-4" /> */}
             <div>
-              <h1 className="text-xl font-bold text-gray-800">NAMA PERUSAHAAN ANDA</h1>
-              <p className="text-sm text-gray-500">Alamat Perusahaan Anda, Kota, Kode Pos</p>
+              <h1 className="text-xl font-bold text-gray-800">PT. PUSPA PESONA KREASINDO</h1>
+              <p className="text-sm text-gray-500">Jl. Pakal No. 21 Surabaya</p>
               <p className="text-sm text-gray-500">Telepon: (021) 123-4567 | Email: info@perusahaan.com</p>
             </div>
           </div>

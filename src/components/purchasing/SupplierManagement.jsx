@@ -189,10 +189,9 @@ const SupplierManagement = () => {
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <h2 className="text-3xl font-bold tracking-tight mb-8">Supplier Management</h2>
-
-      <div className="flex justify-end mb-4">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Supplier Management</h2>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
@@ -273,7 +272,7 @@ const SupplierManagement = () => {
           </DialogContent>
         </Dialog>
       </div>
-
+      
       {/* Search Input */}
       <div className="mb-4">
         <Input 

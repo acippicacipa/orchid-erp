@@ -274,7 +274,7 @@ const UserManagement = ( ) => {
                     <Select name="role_id" value={formData.profile.role_id} onValueChange={(value) => handleSelectChange('role_id', value)}>
                       <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No Role</SelectItem>
+                        <SelectItem value="none">No Role</SelectItem>
                         {roles.map(role => <SelectItem key={role.id} value={role.id.toString()}>{role.display_name}</SelectItem>)}
                       </SelectContent>
                     </Select>

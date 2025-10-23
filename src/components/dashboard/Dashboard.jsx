@@ -205,8 +205,8 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-8">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">

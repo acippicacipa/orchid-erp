@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { PlusCircle, Edit, Trash2, Play, CheckCircle, XCircle, PauseCircle, Clock, Search } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Play, CheckCircle, XCircle, PackageCheck, ClipboardCheck } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from "../ui/badge";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -92,7 +93,7 @@ const ProductSearchDropdown = ({ onSelect, initialValue = '' }) => {
   
   // Handler saat item di dropdown dipilih
   const handleSelect = (product) => {
-    setSearchTerm(product.name); // Isi input dengan nama produk yang dipilih
+    setSearchTerm(product.full_name); // Isi input dengan nama produk yang dipilih
     onSelect(product); // Kirim seluruh objek produk ke parent component
     setShowDropdown(false); // Sembunyikan dropdown
   };
@@ -118,7 +119,7 @@ const ProductSearchDropdown = ({ onSelect, initialValue = '' }) => {
                 className="p-2 hover:bg-accent cursor-pointer"
                 onMouseDown={() => handleSelect(product)} // Gunakan onMouseDown
               >
-                <div className="font-medium">{product.sku} - {product.name}</div>
+                <div className="font-medium">{product.sku} - {product.name} {product.color}</div>
                 <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div>
               </div>
             ))
@@ -151,6 +152,41 @@ const AssemblyOrders = ( ) => {
   const [editingOrder, setEditingOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+  const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState(null);
+  const [loadingCheck, setLoadingCheck] = useState(false);
+  const [orderBeingChecked, setOrderBeingChecked] = useState(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportingOrder, setReportingOrder] = useState(null);
+  const [quantityProduced, setQuantityProduced] = useState('');
+
+  const handleCheckAvailability = async (order) => {
+    setLoadingCheck(true);
+    setAvailabilityData(null); // Reset data sebelumnya
+    setOrderBeingChecked(order); 
+    setIsAvailabilityModalOpen(true); // Buka modal segera
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/inventory/assembly-orders/${order.id}/check-availability/`, {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to check availability');
+      }
+
+      const data = await response.json();
+      setAvailabilityData(data);
+
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setIsAvailabilityModalOpen(false); // Tutup modal jika error
+    } finally {
+      setLoadingCheck(false);
+    }
+  };
 
   useEffect(() => {
     fetchAssemblyOrders();
@@ -247,8 +283,6 @@ const AssemblyOrders = ( ) => {
     }
   };
 
-
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewOrder(prev => ({
@@ -274,12 +308,31 @@ const AssemblyOrders = ( ) => {
         : `${API_BASE_URL}/inventory/assembly-orders/`;
       
       const payload = {
-        ...newOrder,
-        product: newOrder.product === 'null' ? null : newOrder.product,
-        bom: newOrder.bom === 'null' ? null : newOrder.bom,
-        production_location: newOrder.production_location === 'null' ? null : newOrder.production_location,
-        quantity: parseFloat(newOrder.quantity),
+        product: parseInt(newOrder.product), // Pastikan ini integer
+        bom: parseInt(newOrder.bom), // Pastikan ini integer
+        quantity: parseFloat(newOrder.quantity), // Pastikan ini float/decimal
+        
+        // Kirim ID sebagai integer, atau null jika tidak ada.
+        // Backend akan mengabaikan jika 'null' atau '' dikirim dan fieldnya nullable.
+        production_location: newOrder.production_location ? parseInt(newOrder.production_location) : null,
+        
+        // Field lainnya dari state newOrder
+        planned_start_date: newOrder.planned_start_date,
+        planned_completion_date: newOrder.planned_completion_date,
+        priority: newOrder.priority,
+        description: newOrder.description,
+        notes: newOrder.notes,
+        special_instructions: newOrder.special_instructions,
       };
+
+      if (!payload.product || !payload.bom || !payload.production_location) {
+          toast({
+              title: "Validation Error",
+              description: "Product, BOM, and Production Location are required.",
+              variant: "destructive"
+          });
+          return; // Hentikan proses
+      }
 
       const response = await fetch(url, {
         method,
@@ -291,9 +344,10 @@ const AssemblyOrders = ( ) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || JSON.stringify(errorData) || 'Failed to save assembly order');
-      }
+      const errorData = await response.json();
+      const errorMessage = Object.values(errorData).flat().join(' ');
+      throw new Error(errorMessage || 'Failed to save assembly order');
+    }
 
       toast({
         title: "Success",
@@ -399,20 +453,102 @@ const AssemblyOrders = ( ) => {
     }
   };
 
-  const getProductFullName = (product) => {
-    if (!product) return 'N/A';
-    const parts = [product.name];
-    if (product.brand) parts.push(`Brand: ${product.brand}`);
-    if (product.color) parts.push(`Color: ${product.color}`);
-    if (product.size) parts.push(`Size: ${product.size}`);
-    return parts.join(' | ');
+  // const getProductFullName = (product) => {
+  //   if (!product) return 'N/A';
+  //   const parts = [product.name];
+  //   if (product.brand) parts.push(`Brand: ${product.brand}`);
+  //   if (product.color) parts.push(`Color: ${product.color}`);
+  //   if (product.size) parts.push(`Size: ${product.size}`);
+  //   return parts.join(' | ');
+  // };
+
+  const handleReleaseFromCheck = async () => {
+    if (!orderBeingChecked) return;
+
+    // Panggil fungsi handleAction yang sudah ada
+    await handleAction(orderBeingChecked, 'release');
+
+    // Tutup dialog setelah aksi selesai
+    setIsAvailabilityModalOpen(false);
+    setOrderBeingChecked(null); // Bersihkan state
+  };
+
+  const openReportDialog = (order) => {
+    setReportingOrder(order);
+    // Set sisa kuantitas sebagai default
+    const remainingQty = parseFloat(order.quantity) - parseFloat(order.quantity_produced);
+    setQuantityProduced(remainingQty > 0 ? remainingQty.toString() : '0');
+    setIsReportModalOpen(true);
+  };
+
+  // --- FUNGSI BARU UNTUK MENGIRIM DATA HASIL PRODUKSI ---
+  const handleReportProduction = async () => {
+    if (!reportingOrder || !quantityProduced || parseFloat(quantityProduced) <= 0) {
+      toast({ title: "Error", description: "Please enter a valid quantity.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/inventory/assembly-orders/${reportingOrder.id}/report-production/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ quantity_produced: quantityProduced }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to report production');
+      }
+
+      toast({ title: "Success", description: "Production reported and stock updated." });
+      setIsReportModalOpen(false);
+      fetchAssemblyOrders(); // Refresh daftar order
+
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const getPriorityBadge = (priority) => {
+    let variant;
+    let className;
+
+    switch (priority) {
+      case 'URGENT':
+        variant = 'destructive'; // Merah solid
+        className = 'text-white';
+        break;
+      case 'HIGH':
+        variant = 'default'; // Warna primer (biasanya biru atau hitam)
+        className = 'bg-orange-500 hover:bg-orange-600 text-white'; // Custom oranye
+        break;
+      case 'NORMAL':
+        variant = 'secondary'; // Abu-abu
+        break;
+      case 'LOW':
+        variant = 'outline'; // Hanya border
+        break;
+      default:
+        variant = 'secondary';
+    }
+
+    const priorityLabel = PRIORITY_CHOICES.find(p => p.value === priority)?.label || priority;
+
+    return (
+      <Badge variant={variant} className={className}>
+        {priorityLabel}
+      </Badge>
+    );
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h2 className="text-3xl font-bold tracking-tight mb-8">Assembly Order Management</h2>
-
-      <div className="flex justify-end mb-4">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Assembly Order Management</h2>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
@@ -457,7 +593,7 @@ const AssemblyOrders = ( ) => {
                     </SelectTrigger>
                     <SelectContent>
                       {boms.map(b => (
-                        <SelectItem key={b.id} value={b.id.toString()}>{b.bom_number} - {getProductFullName(b.product)}</SelectItem>
+                        <SelectItem key={b.id} value={b.id.toString()}>{b.bom_number} - {b.product_name} {b.product_color}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -521,6 +657,108 @@ const AssemblyOrders = ( ) => {
           </DialogContent>
         </Dialog>
       </div>
+      <div className="flex justify-end mb-4">  
+        <Dialog open={isAvailabilityModalOpen} onOpenChange={setIsAvailabilityModalOpen}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Material Availability Check</DialogTitle>
+              {availabilityData && <p className="text-sm text-muted-foreground">For Assembly Order: {availabilityData.order_number}</p>}
+            </DialogHeader>
+            <div className="py-4">
+              {loadingCheck ? (
+                <div className="text-center">Checking stock levels...</div>
+              ) : availabilityData ? (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Component</TableHead>
+                        <TableHead className="text-right">Required</TableHead>
+                        <TableHead className="text-right">Available</TableHead>
+                        <TableHead className="text-right">Shortage</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {availabilityData.components.map(comp => (
+                        <TableRow key={comp.component_id}>
+                          <TableCell>
+                            <div className="font-medium">{comp.component_name} {comp.component_color}</div>
+                          </TableCell>
+                          <TableCell className="text-right">{comp.required_quantity}</TableCell>
+                          <TableCell className="text-right">{comp.available_quantity}</TableCell>
+                          <TableCell className={`text-right font-bold ${comp.shortage > 0 ? 'text-red-600' : ''}`}>
+                            {comp.shortage}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={comp.status === 'Available' ? 'default' : 'destructive'}>
+                              {comp.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className={`p-4 text-center font-bold ${availabilityData.is_fully_available ? 'text-green-600' : 'text-orange-600'}`}>
+                    {availabilityData.is_fully_available ? 'All components are available.' : 'There is a shortage of one or more components.'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground">No data to display.</div>
+              )}
+            </div>
+            <DialogFooter className="sm:justify-between">
+              <Button variant="outline" onClick={() => setIsAvailabilityModalOpen(false)}>Close</Button>
+              
+              {/* Tampilkan tombol Release hanya jika data sudah dimuat dan tidak ada error */}
+              {!loadingCheck && availabilityData && (
+                <Button
+                  onClick={handleReleaseFromCheck}
+                  // Beri warna berbeda jika ada kekurangan stok untuk memberi peringatan
+                  variant={availabilityData.is_fully_available ? 'default' : 'destructive'}
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  {availabilityData.is_fully_available ? 'Release Order' : 'Release Anyway (Shortage)'}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Report Production Output</DialogTitle>
+              {reportingOrder && <p className="text-sm text-muted-foreground">For Order: {reportingOrder.order_number}</p>}
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <Label>Total to Produce</Label>
+                      <Input value={reportingOrder ? parseInt(reportingOrder.quantity) : ''} disabled />
+                  </div>
+                  <div>
+                      <Label>Already Produced</Label>
+                      <Input value={reportingOrder ? parseInt(reportingOrder.quantity_produced) : ''} disabled />
+                  </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantity_produced">Quantity Finished Now</Label>
+                <Input
+                  id="quantity_produced"
+                  type="number"
+                  value={quantityProduced}
+                  onChange={(e) => setQuantityProduced(e.target.value)}
+                  placeholder="Enter quantity of finished goods"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsReportModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleReportProduction}>Confirm & Update Stock</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <div className="rounded-md border">
         <Table>
@@ -542,25 +780,30 @@ const AssemblyOrders = ( ) => {
               assemblyOrders.map(order => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
-                  <TableCell>{order.product_name}</TableCell>
+                  <TableCell>{order.product_name} {order.product_color}</TableCell>
                   <TableCell>{order.bom_number}</TableCell>
                   <TableCell>{parseInt(order.quantity)}</TableCell>
                   <TableCell>{parseInt(order.quantity_produced)}</TableCell>
-                  <TableCell>{order.production_location ? order.production_location.name : 'N/A'}</TableCell>
+                  <TableCell>{order.production_location ? order.production_location_name : 'N/A'}</TableCell>
                   <TableCell>{STATUS_CHOICES.find(s => s.value === order.status)?.label || order.status}</TableCell>
-                  <TableCell>{PRIORITY_CHOICES.find(p => p.value === order.priority)?.label || order.priority}</TableCell>
+                  <TableCell>{getPriorityBadge(order.priority)}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(order)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     {order.status === 'DRAFT' && (
-                      <Button variant="ghost" size="sm" onClick={() => handleAction(order, 'release')} title="Release Order">
-                        <Play className="h-4 w-4 text-green-600" />
+                      <Button variant="outline" size="sm" onClick={() => handleCheckAvailability(order)} title="Check Material Availability">
+                        <PackageCheck className="h-4 w-4" />
                       </Button>
                     )}
                     {order.status === 'RELEASED' && (
                       <Button variant="ghost" size="sm" onClick={() => handleAction(order, 'start-production')} title="Start Production">
                         <Play className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    )}
+                    {order.status === 'IN_PROGRESS' && (
+                      <Button variant="outline" size="sm" onClick={() => openReportDialog(order)} title="Report Production Output">
+                        <ClipboardCheck className="h-4 w-4 text-blue-600" />
                       </Button>
                     )}
                     {order.status === 'IN_PROGRESS' && (

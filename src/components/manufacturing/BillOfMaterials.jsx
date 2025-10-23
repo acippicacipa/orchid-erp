@@ -75,7 +75,7 @@ const ProductSearchDropdown = ({ onSelect, initialValue = '', filter = () => tru
   }, [searchTerm, token, disabled]);
   
   const handleSelect = (product) => {
-    setSearchTerm(product.name);
+    setSearchTerm(product.full_name);
     onSelect(product);
     setShowDropdown(false);
   };
@@ -274,14 +274,13 @@ const BillOfMaterials = () => {
       // Sekarang, isi form dengan data lengkap yang baru saja diambil
       setNewBom({
         product: detailedBom.product?.toString() || '',
-        product_name: detailedBom.product_name || '', 
+        product_name: `${detailedBom.product_name || ''} ${detailedBom.product_color || ''}`.trim(), 
         version: detailedBom.version || '1.0',
         is_default: detailedBom.is_default || false,
-        // Gunakan bom_items dari data detail yang baru
         bom_items: (Array.isArray(detailedBom.bom_items) ? detailedBom.bom_items.map(item => ({
           ...item,
           component: item.component.toString(),
-          component_name: item.component_name || 'Unknown',
+          component_name: `${item.component_name || 'Unknown'} ${item.component_color || ''}`.trim(),
           component_sku: item.component_sku || 'N/A',
         })) : [])
       });
@@ -331,8 +330,8 @@ const BillOfMaterials = () => {
 
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-8">
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-2">
         <h2 className="text-3xl font-bold tracking-tight">Bill of Materials</h2>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>

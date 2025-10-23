@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Search, Plus, Edit, Trash2, User, Phone, Mail, MapPin } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, User, Phone, Mail, MapPin, CreditCard } from 'lucide-react'; // Impor ikon baru
 import { useToast } from '../ui/use-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -226,6 +226,7 @@ const CustomerManagement = () => {
   const initialCustomerState = {
     name: '',
     customer_group: 'null',
+    payment_type: 'CREDIT',
     email: '',
     phone: '',
     mobile: '',
@@ -411,7 +412,7 @@ const CustomerManagement = () => {
       name: customer.name || '',
       email: customer.email || '',
       phone: customer.phone || '',
-      customer_group: customer.customer_group,
+      customer_group: customer.customer_group || null,
       mobile: customer.mobile || '',
       company_name: customer.company_name || '',
       contact_person: customer.contact_person || '',
@@ -425,7 +426,8 @@ const CustomerManagement = () => {
       credit_limit: customer.credit_limit?.toString() || '0',
       payment_terms: customer.payment_terms || 'Net 30 days',
       is_active: customer.is_active !== undefined ? customer.is_active : true,
-      notes: customer.notes || ''
+      notes: customer.notes || '',
+      payment_type: customer.payment_type || 'CREDIT'
     });
     setIsDialogOpen(true);
   };
@@ -472,24 +474,10 @@ const CustomerManagement = () => {
     const defaultGroupId = walkInGroup ? walkInGroup.id : null;
 
     setFormData({
-      name: '',
-      email: '',
-      phone: '',
+      ...initialCustomerState,
       customer_group: defaultGroupId,
-      mobile: '',
-      company_name: '',
-      contact_person: '',
-      address_line_1: '',
-      address_line_2: '',
-      city: '',
-      state: '',
-      postal_code: '',
-      country: 'Indonesia',
-      tax_id: '',
-      credit_limit: '0',
-      payment_terms: 'Net 30 days',
-      is_active: true,
-      notes: ''
+      // Jika defaultnya Walk In, set payment type ke CASH
+      payment_type: walkInGroup ? 'CASH' : 'CREDIT',
     });
     setEditingCustomer(null);
   };
@@ -575,6 +563,50 @@ const CustomerManagement = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment_type">Default Payment Workflow</Label>
+                      <Select
+                        value={formData.payment_type}
+                        onValueChange={(value) => handleSelectChange('payment_type', value)}
+                      >
+                        <SelectTrigger id="payment_type">
+                          <SelectValue placeholder="Select payment workflow" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CREDIT">Credit (via Invoice)</SelectItem>
+                          <SelectItem value="CASH">Cash (Direct Sale)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formData.payment_type === 'CREDIT' && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="credit_limit">Credit Limit (IDR)</Label>
+                          <Input
+                            id="credit_limit"
+                            name="credit_limit"
+                            type="number"
+                            min="0"
+                            value={formData.credit_limit}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="payment_terms">Payment Terms</Label>
+                          <Select value={formData.payment_terms} onValueChange={(value) => handleSelectChange('payment_terms', value)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Net 15 days">Net 15 days</SelectItem>
+                              <SelectItem value="Net 30 days">Net 30 days</SelectItem>
+                              <SelectItem value="Net 45 days">Net 45 days</SelectItem>
+                              <SelectItem value="Net 60 days">Net 60 days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="company_name">Company Name</Label>
                       <Input
@@ -684,33 +716,6 @@ const CustomerManagement = () => {
                         onChange={handleInputChange}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="credit_limit">Credit Limit (IDR)</Label>
-                      <Input
-                        id="credit_limit"
-                        name="credit_limit"
-                        type="number"
-                        min="0"
-                        value={formData.credit_limit}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment_terms">Payment Terms</Label>
-                      <Select value={formData.payment_terms} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_terms: value }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Net 15 days">Net 15 days</SelectItem>
-                          <SelectItem value="Net 30 days">Net 30 days</SelectItem>
-                          <SelectItem value="Net 45 days">Net 45 days</SelectItem>
-                          <SelectItem value="Net 60 days">Net 60 days</SelectItem>
-                          <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
-                          <SelectItem value="Prepaid">Prepaid</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="notes">Notes</Label>
@@ -770,7 +775,7 @@ const CustomerManagement = () => {
                 <TableRow>
                   <TableHead>Customer</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Credit</TableHead>
+                  <TableHead>Payment Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -822,7 +827,10 @@ const CustomerManagement = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {formatCurrency(customer.credit_limit || 0)}
+                      <Badge variant={customer.payment_type === 'CREDIT' ? 'default' : 'secondary'}>
+                        <CreditCard className="mr-1 h-3 w-3" />
+                        {customer.payment_type}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={customer.is_active ? "default" : "secondary"}>

@@ -13,15 +13,11 @@ const formatRupiah = (amount ) => {
     }).format(amount);
 };
 
-const ProductSearchDropdown = ({ value, onSelect, placeholder = "Search products..." }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "Search products..." }) => {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
-
-  // Jika ada `value` dari parent, gunakan itu untuk tampilan. Jika tidak, gunakan `searchTerm` lokal.
-  const displayValue = value || searchTerm;
 
   const searchProducts = async (query) => {
     if (query.length < 2) {
@@ -52,17 +48,18 @@ const ProductSearchDropdown = ({ value, onSelect, placeholder = "Search products
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      // Hanya cari jika `searchTerm` tidak sama dengan `value` yang dipilih
-      if (searchTerm && searchTerm !== value) {
-        searchProducts(searchTerm);
+      // Hanya cari jika `value` (teks di input) ada isinya
+      if (value) {
+        searchProducts(value);
+      } else {
+        setResults([]); // Kosongkan hasil jika input kosong
       }
-    }, 300); // Debounce
+    }, 300);
     return () => clearTimeout(handler);
-  }, [searchTerm, value]);
+  }, [value]);
   
   const handleSelect = (product) => {
-    onSelect(product); // Kirim seluruh objek produk ke parent
-    setSearchTerm(''); // Kosongkan input setelah memilih
+    onSelect(product);
     setShowDropdown(false);
   };
 
@@ -78,8 +75,8 @@ const ProductSearchDropdown = ({ value, onSelect, placeholder = "Search products
     <div className="relative">
       <Input
         placeholder={placeholder}
-        value={displayValue}
-        onChange={handleInputChange}
+        value={value || ''}
+        onChange={(e) => onValueChange(e.target.value)}
         onFocus={() => setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 200)} // Delay untuk memungkinkan klik pada dropdown
       />
@@ -94,9 +91,10 @@ const ProductSearchDropdown = ({ value, onSelect, placeholder = "Search products
                 className="p-2 hover:bg-gray-100 cursor-pointer"
                 onMouseDown={() => handleSelect(product)} // Gunakan onMouseDown agar onBlur tidak ter-trigger duluan
               >
-                <div className="font-medium">{product.name} ({product.sku})</div>
-                <div className="text-sm text-gray-500">
-                  Stock: {product.stock_quantity || 0} | Price: {formatRupiah(product.selling_price)}
+                <div className="font-medium text-sm">{product.name} {product.color} {} 
+                  <label className="text-sm text-gray-500">
+                    (Stock: {product.stock_quantity || 0} | {formatRupiah(product.selling_price)})
+                  </label>
                 </div>
               </div>
             ))

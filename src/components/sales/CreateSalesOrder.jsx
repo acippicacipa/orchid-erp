@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -12,6 +12,25 @@ import { useToast } from '../ui/use-toast';
 import ProductSearchDropdown from './ProductSearchDropdown';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const formatRupiah = (amount, withDecimal = false) => {
+  if (amount === null || amount === undefined || amount === '') return '';
+  const number = parseFloat(amount) || 0;
+
+  const options = {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: withDecimal ? 2 : 0,
+    maximumFractionDigits: withDecimal ? 2 : 0,
+  };
+
+  return new Intl.NumberFormat('id-ID', options).format(number);
+};
+
+const parseRupiah = (rupiahString) => {
+  if (!rupiahString) return '0';
+  // Hanya ambil angka dari string
+  return rupiahString.replace(/[^0-9]/g, '') || '0';
+};
 
 const getTodayDateString = () => {
   const today = new Date();
@@ -36,6 +55,8 @@ const CreateSalesOrder = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const { toast } = useToast();
 
+  const [isCreditSale, setIsCreditSale] = useState(false);
+
   const initialFormState = {
     customer: '',
     due_date: getTodayDateString(),
@@ -51,7 +72,7 @@ const CreateSalesOrder = () => {
 
   const [newItem, setNewItem] = useState({
     product: '',
-    product_name: '',
+    product_full_name: '',
     quantity: '1',
     unit_price: '0',
     discount_percentage: '0'
@@ -174,6 +195,13 @@ const CreateSalesOrder = () => {
     }));
   };
 
+  const handleSelectChange = (fieldName, fieldValue) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: fieldValue
+    }));
+  };
+
   const fetchProductPrice = useCallback(async (productId, quantity) => {
     const customerId = formData.customer;
     if (!productId || !customerId || !quantity) return;
@@ -213,7 +241,7 @@ const CreateSalesOrder = () => {
       setNewItem(prev => ({
         ...prev,
         product: product.id,
-        product_name: product.name,
+        product_full_name: product.full_name,
         // Gunakan selling_price sebagai default unit_price
         unit_price: '0', 
         discount_percentage: '0' 
@@ -230,7 +258,16 @@ const CreateSalesOrder = () => {
     }
   };
 
+  const selectedCustomer = useMemo(() => {
+    if (!formData.customer || customers.length === 0) {
+      return null; // Kembalikan null jika tidak ada customer yang dipilih atau daftar customer kosong
+    }
+    // Cari objek customer lengkap di dalam array `customers` berdasarkan ID
+    return customers.find(c => c.id === formData.customer);
+  }, [formData.customer, customers]);
+
   const selectCustomer = (customer) => {
+
     if (formData.items.length > 0) {
       const isConfirmed = window.confirm(
         'Changing the customer will reset the current order. Are you sure you want to continue?'
@@ -248,11 +285,6 @@ const CreateSalesOrder = () => {
     
     // Tutup dropdown setelah memilih
     setShowCustomerDropdown(false);
-  };
-
-  const openNewOrderForm = () => {
-    resetForm(); // Panggil tanpa argumen untuk membersihkan semuanya
-    setIsDialogOpen(true); // Ganti ini sesuai cara Anda membuka form
   };
 
   const addItem = () => {
@@ -513,13 +545,21 @@ const CreateSalesOrder = () => {
   };
 
   const resetForm = (newCustomer = null) => {
+
+    const creditMode = newCustomer.payment_type === 'CREDIT';
+    setIsCreditSale(creditMode);
+
     setFormData({
       ...initialFormState,
       // Jika ada customer baru yang di-pass, langsung set di sini
       customer: newCustomer ? newCustomer.id : '',
       // Terapkan juga diskon default dari customer baru
-      discount_percentage: newCustomer?.customer_group?.discount_percentage?.toString() || '0'
+      discount_percentage: newCustomer?.customer_group?.discount_percentage?.toString() || '0',
+      due_date: creditMode ? getTodayDateString() : '',
+      payment_method: creditMode ? 'NOT_PAID' : 'CASH',
+      status: creditMode   ? 'DRAFT' : 'DELIVERED'
     });
+
     setNewItem({
       product: '',
       product_name: '',
@@ -557,9 +597,7 @@ const CreateSalesOrder = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Create Sales Order</h1>
-      </div>
+      
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -589,51 +627,44 @@ const CreateSalesOrder = () => {
                           className="p-2 hover:bg-gray-100 cursor-pointer"
                           onClick={() => selectCustomer(customer)}
                         >
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-sm text-gray-500">{customer.customer_id}</div>
+                          <div className="font-medium">
+                            {customer.name} { }
+                            <label className="text-sm text-gray-500">({customer.customer_id})</label>
+                          </div>
                         </div>
                       ))}
                   </div>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="due_date">Due Date</Label>
-                <Input
-                  id="due_date"
-                  name="due_date"
-                  type="date"
-                  value={formData.due_date}
-                  onChange={handleInputChange}
-                />
+                <h1 className="text-2xl font-bold">Create Sales Order</h1>
               </div>
             </div>
-
             {/* Add Items Section */}
             <Card>
               <CardHeader>
                 <CardTitle>Add Items</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div className="md:col-span-2 space-y-2"> {/* Beri ruang lebih lebar */}
+                <div className="grid grid-cols-12 gap-4 items-end">
+                  <div className="col-span-12 md:col-span-5 space-y-2"> {/* Beri ruang lebih lebar */}
                     <Label>Product *</Label>
                     <ProductSearchDropdown
-                      value={newItem.product_name}
+                      value={newItem.product_full_name}
                       onSelect={handleProductSelect}
                       placeholder="Search product by name or SKU..."
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Quantity</Label>
+                  <div className="col-span-4 md:col-span-1 space-y-2">
+                    <Label>Qty</Label>
                     <Input
-                      type="number"
+                      type="text"
                       min="1"
-                      step="1"
                       value={newItem.quantity}
                       onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="col-span-8 md:col-span-2 space-y-2">
                     <Label>Unit Price (IDR)</Label>
                     <Input
                       type="number"
@@ -643,7 +674,7 @@ const CreateSalesOrder = () => {
                       readOnly 
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="col-span-4 md:col-span-2 space-y-2">
                     <Label>Discount (%)</Label>
                     <Input
                       type="number"
@@ -655,7 +686,7 @@ const CreateSalesOrder = () => {
                       readOnly
                     />
                   </div>
-                  <div className="space-y-2 self-end">
+                  <div className="col-span-8 md:col-span-2 space-y-2">
                     <Button type="button" onClick={addItem} className="w-full">
                       Add Item
                     </Button>
@@ -675,7 +706,7 @@ const CreateSalesOrder = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead>Quantity</TableHead>
+                        <TableHead>Qty</TableHead>
                         <TableHead>Unit Price</TableHead>
                         <TableHead>Discount</TableHead>
                         <TableHead>Line Total</TableHead>
@@ -685,7 +716,7 @@ const CreateSalesOrder = () => {
                     <TableBody>
                       {formData.items.map((item, index) => (
                         <TableRow key={index}>
-                          <TableCell>{item.product_name}</TableCell>
+                          <TableCell>{item.product_full_name}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                           <TableCell>{item.discount_percentage}%</TableCell>
@@ -780,7 +811,74 @@ const CreateSalesOrder = () => {
                 </CardContent>
               </Card>
             )}
+            {isCreditSale ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="due_date">Expected Ship Date</Label>
+                  <Input
+                    id="due_date"
+                    name="due_date"
+                    type="date"
+                    value={formData.due_date}
+                    onChange={handleInputChange}
+                  />
+                  </div>
+                <div className="space-y-2">
+                  <Label>Payment Terms</Label>
+                  {/* Tampilkan payment terms dari customer, read-only */}
+                  <Input value={selectedCustomer?.payment_terms || 'Net 30'} readOnly />
+                </div>
+              </div>
+            ) : ( // --- TAMPILAN UNTUK PENJUALAN TUNAI --- 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="payment_method">Payment Method</Label>
+                  <Select
+                    name="payment_method"
+                    value={formData.payment_method}
+                    onValueChange={(value) => handleSelectChange('payment_method', value)}
+                  >
+                    <SelectTrigger id="payment_method">
+                      <SelectValue placeholder="Select a payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Daftar metode pembayaran ini sebaiknya konsisten dengan yang ada di backend */}
+                      <SelectItem value="CASH">Cash</SelectItem>
+                      <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                      <SelectItem value="DEBIT_CARD">Debit Card</SelectItem>
+                      <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>
+                      <SelectItem value="QRIS">QRIS</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                {/* Input untuk Jumlah yang Dibayar */}
+                <div className="space-y-2">
+                  <Label htmlFor="amount_paid">Amount Paid</Label>
+                  <Input
+                    id="amount_paid"
+                    name="amount_paid"
+                    type="text" // Gunakan type="text" untuk memungkinkan formatting Rupiah
+                    placeholder="Enter amount paid"
+                    value={formatRupiah(formData.amount_paid, false)} // Format nilai menjadi Rupiah
+                    onChange={(e) => {
+                      // Saat input berubah, parse nilainya kembali menjadi angka murni
+                      const numericValue = parseRupiah(e.target.value);
+                      handleSelectChange('amount_paid', numericValue);
+                    }}
+                  />
+                  {/* (Opsional) Tombol untuk membayar lunas */}
+                  <Button 
+                      type="button" 
+                      variant="link" 
+                      className="p-0 h-auto text-xs"
+                      onClick={() => handleSelectChange('amount_paid', totals.total.toString())}
+                  >
+                      Pay Full Amount ({formatRupiah(totals.total, false)})
+                  </Button>
+                </div>
+              </div>
+            )}
             {/* Additional Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">

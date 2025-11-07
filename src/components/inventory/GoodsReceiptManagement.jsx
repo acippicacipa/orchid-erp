@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 // import { useAuth } from '@/contexts/AuthContext'; // Auth context is good practice but not directly used in the logic here
 import { Plus, Eye, Loader2, Trash2, X, CheckCircle } from 'lucide-react';
+import ProductSearchDropdown from './ProductSearchDropdown';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -43,28 +44,6 @@ const SupplierSelector = ({ value, onValueChange }) => {
   );
 };
 
-const ProductSelector = ({ onSelectProduct }) => {
-  const [products, setProducts] = useState([]);
-  useEffect(() => {
-    const fetchProducts = async () => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/inventory/products/`, { headers: { 'Authorization': `Token ${token}` } });
-      const data = await res.json();
-      setProducts(data.results || []);
-    };
-    fetchProducts();
-  }, []);
-
-  return (
-    <Select onValueChange={(productId) => onSelectProduct(products.find(p => p.id === parseInt(productId)))}>
-      <SelectTrigger><SelectValue placeholder="Search and select a product..." /></SelectTrigger>
-      <SelectContent>
-        {products.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.sku})</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-};
-
 const GoodsReceiptManagement = ( ) => {
   const [goodsReceipts, setGoodsReceipts] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -86,6 +65,8 @@ const GoodsReceiptManagement = ( ) => {
     items: [],
   };
   const [formData, setFormData] = useState(initialFormState);
+
+  const [manualProductSearch, setManualProductSearch] = useState('');
 
   // --- FIXED DATA FETCHING ---
   const fetchGoodsReceipts = useCallback(async () => {
@@ -259,14 +240,15 @@ const GoodsReceiptManagement = ( ) => {
         return;
     }
     const newItem = {
-        temp_id: `manual_${Date.now()}`, // ID unik sementara
+        temp_id: `manual_${Date.now()}`,
         product: product.id,
-        product_name: product.name,
-        product_sku: product.sku,
+        product_name: product.name, // Ambil nama dari objek produk
+        product_sku: product.sku,   // Ambil SKU dari objek produk
         quantity_received: 1,
-        unit_price: 0, // Harga harus diisi manual
+        unit_price: product.cost_price || 0,
     };
     setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    setManualProductSearch('');
   };
 
   const handleRemoveItem = (index) => {
@@ -406,7 +388,16 @@ const GoodsReceiptManagement = ( ) => {
                   </div>
                   <div className="space-y-2">
                     <Label>Add Product to List</Label>
-                    <ProductSelector onSelectProduct={handleAddItemManual} />
+                    <ProductSearchDropdown
+                      // `value` dikontrol oleh state `manualProductSearch`
+                      value={manualProductSearch}
+                      // `onValueChange` mengupdate state `manualProductSearch`
+                      onValueChange={setManualProductSearch}
+                      // `onSelect` memanggil fungsi untuk menambahkan item
+                      onSelect={handleAddItemManual}
+                      // Sesuaikan endpoint jika perlu
+                      searchEndpoint="/inventory/products/?is_purchasable=true&search="
+                    />
                   </div>
                   {/* Tabel Item untuk Manual */}
                   {formData.items.length > 0 && (

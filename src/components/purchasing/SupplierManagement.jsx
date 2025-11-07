@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Search } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -180,25 +180,38 @@ const SupplierManagement = () => {
     fetchSuppliers();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="flex justify-center items-center h-64">
+  //       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-3xl font-bold tracking-tight mb-2">Supplier Management</h2>
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Supplier Management</h2>
+          <p className="text-muted-foreground">Manage all suppliers.</p>
+        </div>
+        {/* Search Input */}
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search by name or contact..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
               setEditingSupplier(null);
               setFormData(initialFormState);
             }}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Supplier
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
@@ -271,16 +284,6 @@ const SupplierManagement = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-      
-      {/* Search Input */}
-      <div className="mb-4">
-        <Input 
-          placeholder="Search by name or contact..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
       </div>
 
       <div className="rounded-md border">

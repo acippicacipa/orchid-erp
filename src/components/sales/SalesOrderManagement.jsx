@@ -1,245 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Search, Plus, Edit, Trash2, ShoppingCart, Package, Calendar, User, X } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/table';
+import { Search, Edit, Trash2, Loader2, Info, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { useNavigate } from 'react-router-dom';
+import SalesOrderForm from './SalesOrderForm'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination'; // Impor komponen Pagination
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-// Format Rupiah tanpa desimal untuk Indonesia
-const formatRupiah = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return 'Rp 0';
-  const number = Math.round(parseFloat(amount) || 0);
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+// Helper untuk format mata uang
+const formatRupiah = (amount ) => {
+  if (amount === null || amount === undefined) return 'Rp 0';
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(number);
+  }).format(amount);
 };
 
-// Parse input Rupiah ke number
-const parseRupiah = (rupiahString) => {
-  if (!rupiahString) return 0;
-  return parseInt(rupiahString.replace(/[^0-9]/g, '')) || 0;
-};
-
-// Product Search Component
-const ProductSearchDropdown = ({ products, value, onSelect, placeholder = "Search products..." }) => {
-  const [open, setOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  
-  const selectedProduct = products.find(p => p.id.toString() === value);
-  
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchValue.toLowerCase()) ||
-    (product.brand && product.brand.toLowerCase().includes(searchValue.toLowerCase()))
-  ).slice(0, 50);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {selectedProduct ? (
-            <span className="truncate">
-              {selectedProduct.sku} - {selectedProduct.name}
-            </span>
-          ) : (
-            placeholder
-          )}
-          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput 
-            placeholder="Type to search products..." 
-            value={searchValue}
-            onValueChange={setSearchValue}
-          />
-          <CommandList>
-            <CommandEmpty>No products found.</CommandEmpty>
-            <CommandGroup>
-              {filteredProducts.map((product) => (
-                <CommandItem
-                  key={product.id}
-                  value={product.id.toString()}
-                  onSelect={() => {
-                    onSelect(product);
-                    setOpen(false);
-                    setSearchValue('');
-                  }}
-                >
-                  <div className="flex flex-col w-full">
-                    <div className="font-medium">
-                      {product.sku} - {product.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {product.brand && `Brand: ${product.brand} | `}
-                      Stock: {product.current_stock || 0} | 
-                      Price: {formatRupiah(product.selling_price)}
-                    </div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
-// Customer Search Component
-const CustomerSearchDropdown = ({ customers, value, onSelect, placeholder = "Search customers..." }) => {
-  const [open, setOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  
-  const selectedCustomer = customers.find(c => c.id.toString() === value);
-  
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchValue.toLowerCase()) ||
-    (customer.phone && customer.phone.includes(searchValue))
-  ).slice(0, 50);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {selectedCustomer ? (
-            <span className="truncate">
-              {selectedCustomer.name} - {selectedCustomer.email}
-            </span>
-          ) : (
-            placeholder
-          )}
-          <User className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput 
-            placeholder="Type to search customers..." 
-            value={searchValue}
-            onValueChange={setSearchValue}
-          />
-          <CommandList>
-            <CommandEmpty>No customers found.</CommandEmpty>
-            <CommandGroup>
-              {filteredCustomers.map((customer) => (
-                <CommandItem
-                  key={customer.id}
-                  value={customer.id.toString()}
-                  onSelect={() => {
-                    onSelect(customer.id.toString());
-                    setOpen(false);
-                    setSearchValue('');
-                  }}
-                >
-                  <div className="flex flex-col w-full">
-                    <div className="font-medium">{customer.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {customer.email} | {customer.phone || 'No phone'}
-                    </div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
+// Helper untuk format tanggal
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch (error) {
+    return dateString;
+  }
 };
 
 const SalesOrderManagement = () => {
   const [salesOrders, setSalesOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]); // Data untuk form
+  const [products, setProducts] = useState([]);   // Data untuk form
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // --- 2. TAMBAHKAN STATE UNTUK DIALOG ---
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  const [formData, setFormData] = useState({
-    customer: '',
-    due_date: '',
-    status: 'DRAFT',
-    discount_percentage: '0',
-    tax_percentage: '11',
-    shipping_cost: '0',
-    notes: '',
-    items: []
-  });
-
-  const [newItem, setNewItem] = useState({
-    product: '',
-    product_name: '',
-    quantity: '1',
-    unit_price: '0',
-    discount_percentage: '0'
-  });
 
   useEffect(() => {
     fetchSalesOrders();
     fetchCustomers();
-    fetchProducts();
   }, []);
-
-  useEffect(() => {
-    const filtered = salesOrders.filter(order =>
-      order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.status?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredOrders(filtered);
-  }, [salesOrders, searchTerm]);
-
-  const fetchSalesOrders = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/sales-orders/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSalesOrders(data.results || data);
-      }
-    } catch (error) {
-      console.error('Error fetching sales orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch sales orders",
-        variant: "destructive",
-      });
-    }
-  };
 
   const fetchCustomers = async () => {
     try {
@@ -247,161 +79,159 @@ const SalesOrderManagement = () => {
       const response = await fetch(`${API_BASE_URL}/sales/customers/`, {
         headers: {
           'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
         },
-      });
-      
+      } );
+
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data.results || data);
+        const customersData = Array.isArray(data.results) 
+          ? data.results 
+          : Array.isArray(data) 
+            ? data 
+            : [];
+
+        setCustomers(customersData.filter(customer => customer.is_active));
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setCustomers([]); // Pastikan reset ke array kosong jika terjadi error
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchSalesOrders = useCallback(async (page = 1, search = '') => {
+    setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/inventory/products/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data.results || data);
+      const url = new URL(`${API_BASE_URL}/sales/sales-orders/`);
+      url.searchParams.append('page', page);
+      if (search) {
+        url.searchParams.append('search', search);
       }
+
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch sales orders');
+      
+      const data = await response.json();
+      
+      setSalesOrders(data.results || []);
+      setTotalCount(data.count || 0);
+      // Hitung total halaman berdasarkan jumlah data dan ukuran halaman (misal 25)
+      setTotalPages(Math.ceil((data.count || 0) / 25)); 
+      setCurrentPage(page);
+
     } catch (error) {
-      console.error('Error fetching products:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSalesOrders(1, '');
+  }, [fetchSalesOrders]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // Saat pengguna selesai mengetik, panggil API lagi dari halaman 1 dengan query pencarian
+      fetchSalesOrders(1, searchTerm);
+    }, 500); // Tunda 500ms
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, fetchSalesOrders]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      fetchSalesOrders(newPage, searchTerm);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleItemChange = (field, value) => {
-    setNewItem(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleProductSelect = (product) => {
-    setNewItem(prev => ({
-      ...prev,
-      product: product.id.toString(),
-      product_name: product.name,
-      unit_price: product.selling_price || '0'
-    }));
-  };
-
-  const addItem = () => {
-    if (!newItem.product || !newItem.quantity) {
-      toast({
-        title: "Error",
-        description: "Please select a product and enter quantity",
-        variant: "destructive",
-      });
+  const handleDelete = async (orderId) => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this draft order? This action cannot be undone.'
+      )
+    ) {
       return;
     }
-
-    const product = products.find(p => p.id.toString() === newItem.product);
-    const item = {
-      id: Date.now(), // Temporary ID for new items
-      product: parseInt(newItem.product),
-      product_name: product?.name || newItem.product_name,
-      product_sku: product?.sku || '',
-      quantity: parseInt(newItem.quantity),
-      unit_price: parseRupiah(newItem.unit_price),
-      discount_percentage: parseFloat(newItem.discount_percentage) || 0,
-    };
-
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, item]
-    }));
-
-    // Reset new item form
-    setNewItem({
-      product: '',
-      product_name: '',
-      quantity: '1',
-      unit_price: '0',
-      discount_percentage: '0'
-    });
-  };
-
-  const removeItem = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
-  };
-
-  const calculateItemSubtotal = (item) => {
-    const subtotal = item.quantity * item.unit_price;
-    const discount = subtotal * (item.discount_percentage / 100);
-    return subtotal - discount;
-  };
-
-  const calculateOrderTotals = () => {
-    const subtotal = formData.items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
-    const orderDiscount = subtotal * (parseFloat(formData.discount_percentage) / 100);
-    const afterDiscount = subtotal - orderDiscount;
-    const tax = afterDiscount * (parseFloat(formData.tax_percentage) / 100);
-    const shipping = parseRupiah(formData.shipping_cost);
-    const total = afterDiscount + tax + shipping;
-
-    return {
-      subtotal,
-      orderDiscount,
-      afterDiscount,
-      tax,
-      shipping,
-      total
-    };
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
     try {
       const token = localStorage.getItem('token');
-      
-      if (formData.items.length === 0) {
-        throw new Error('Please add at least one item to the order');
+      const response = await fetch(
+        `${API_BASE_URL}/sales/sales-orders/${orderId}/`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Token ${token}` },
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to delete sales order.');
       }
+      toast({ title: 'Success', description: 'Draft order has been deleted.' });
+      fetchSalesOrders(); // Refresh data
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
 
+
+  const handleEdit = (order) => {
+    const transformedData = {
+      // Ambil ID dari order itu sendiri
+      id: order.id,
+      
+      // Ambil ID customer dari objek 'customer_details'
+      customer: order.customer_details?.id || '',
+
+      // Ambil field-field lain, berikan nilai default jika null/undefined
+      status: order.status || 'DRAFT',
+      due_date: order.due_date ? order.due_date.split('T')[0] : getTodayDateString(),
+      notes: order.notes || '',
+      discount_percentage: order.discount_percentage?.toString() || '0',
+      tax_percentage: order.tax_percentage?.toString() || '0',
+      shipping_cost: order.shipping_cost?.toString() || '0',
+      down_payment_amount: order.down_payment_amount?.toString() || '0',
+      payment_method: order.payment_method || 'NOT_PAID',
+      guest_name: order.guest_name || '',
+      guest_phone: order.guest_phone || '',
+
+      // 2. Transformasi setiap item di dalam array 'items'
+      items: (order.items || []).map(item => ({
+        product: item.product_details?.id || item.product, // Ambil ID produk
+        product_full_name: item.product_details?.full_name || 'Unknown Product', // Ambil nama lengkapnya
+        quantity: item.quantity?.toString() || '1',
+        unit_price: item.unit_price?.toString() || '0',
+        discount_percentage: item.discount_percentage?.toString() || '0',
+        // Hitung ulang line_total untuk konsistensi
+        line_total: (item.quantity * item.unit_price) * (1 - (item.discount_percentage / 100)),
+      })),
+    };
+
+    // 3. Set state 'editingOrder' dengan data yang sudah ditransformasi
+    setEditingOrder(transformedData);
+    
+    // 4. Buka dialog
+    setIsDialogOpen(true);
+  };
+
+  const handleUpdateSubmit = async (formData) => {
+    if (!editingOrder) return;
+    try {
+      const token = localStorage.getItem('token');
       const payload = {
-        customer: parseInt(formData.customer),
-        due_date: formData.due_date,
-        status: formData.status,
-        discount_percentage: parseFloat(formData.discount_percentage),
-        tax_percentage: parseFloat(formData.tax_percentage),
-        shipping_cost: parseRupiah(formData.shipping_cost),
-        notes: formData.notes,
+        ...formData,
         items: formData.items.map(item => ({
           product: item.product,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          discount_percentage: item.discount_percentage
-        }))
+          discount_percentage: item.discount_percentage,
+        })),
       };
 
-      const url = editingOrder 
-        ? `${API_BASE_URL}/sales/sales-orders/${editingOrder.id}/`
-        : `${API_BASE_URL}/sales/sales-orders/`;
-      
-      const method = editingOrder ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`${API_BASE_URL}/sales/sales-orders/${editingOrder.id}/`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -411,171 +241,253 @@ const SalesOrderManagement = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to save sales order');
+        throw new Error(errorData.detail || 'Failed to update order.');
       }
 
-      toast({
-        title: "Success",
-        description: `Sales order ${editingOrder ? 'updated' : 'created'} successfully.`,
-      });
-      
+      toast({ title: 'Success', description: 'Sales order has been updated.' });
       setIsDialogOpen(false);
-      resetForm();
+      setEditingOrder(null);
       fetchSalesOrders();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      customer: '',
-      due_date: '',
-      status: 'DRAFT',
-      discount_percentage: '0',
-      tax_percentage: '11',
-      shipping_cost: '0',
-      notes: '',
-      items: []
-    });
-    setNewItem({
-      product: '',
-      product_name: '',
-      quantity: '1',
-      unit_price: '0',
-      discount_percentage: '0'
-    });
-    setEditingOrder(null);
-  };
-
-  const handleEdit = (order) => {
-    setEditingOrder(order);
-    setFormData({
-      customer: order.customer?.id?.toString() || '',
-      due_date: order.due_date || '',
-      status: order.status || 'DRAFT',
-      discount_percentage: order.discount_percentage?.toString() || '0',
-      tax_percentage: order.tax_percentage?.toString() || '11',
-      shipping_cost: order.shipping_cost?.toString() || '0',
-      notes: order.notes || '',
-      items: order.items || []
-    });
-    setIsDialogOpen(true);
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      'DRAFT': { color: 'bg-gray-100 text-gray-800', label: 'Draft' },
-      'CONFIRMED': { color: 'bg-blue-100 text-blue-800', label: 'Confirmed' },
-      'SHIPPED': { color: 'bg-yellow-100 text-yellow-800', label: 'Shipped' },
-      'DELIVERED': { color: 'bg-green-100 text-green-800', label: 'Delivered' },
-      'CANCELLED': { color: 'bg-red-100 text-red-800', label: 'Cancelled' },
+      DRAFT: 'secondary',
+      PENDING_APPROVAL: 'outline',
+      REJECTED: 'destructive',
+      CONFIRMED: 'default',
+      PROCESSING: 'default',
+      SHIPPED: 'default',
+      DELIVERED: 'default',
+      CANCELLED: 'destructive',
     };
-    
-    const config = statusConfig[status] || statusConfig['DRAFT'];
-    return <Badge className={config.color}>{config.label}</Badge>;
+    const variant = statusConfig[status] || 'secondary';
+    return (
+      <Badge
+        variant={variant}
+        className={`capitalize ${
+          variant === 'default' ? 'bg-blue-600' : ''
+        }`}
+      >
+        {status.replace('_', ' ').toLowerCase()}
+      </Badge>
+    );
   };
 
-  const formatDate = (dateString) => {
-    // 1. Periksa apakah dateString valid dan dalam format yang diharapkan.
-    if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return ''; // Atau 'N/A' jika string tidak valid
+  // const filteredOrders = salesOrders.filter(
+  //   (order) =>
+  //     order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     order.status?.toLowerCase().includes(searchTerm.toLowerCase())
+  // );
+
+  const handleConfirmOrder = async (orderId) => {
+    // Tampilkan konfirmasi kepada pengguna
+    if (!window.confirm('Are you sure you want to confirm this order? This action cannot be undone.')) {
+      return;
     }
 
-    // 2. Pisahkan string menjadi komponen tahun, bulan, dan hari.
-    //    '2025-10-31' -> ['2025', '10', '31']
-    const parts = dateString.split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10);
-    const day = parseInt(parts[2], 10);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // 1. Tentukan URL yang benar, sesuai dengan pola yang dibuat oleh @action
+      const url = `${API_BASE_URL}/sales/sales-orders/${orderId}/confirm/`;
 
-    // 3. Buat objek Date menggunakan angka, bukan string.
-    //    PENTING: Di sini, bulan untuk constructor Date() adalah 0-indexed (Jan=0, Feb=1, ...).
-    //    Jadi, kita harus mengurangi 1 dari bulan yang kita parse.
-    const date = new Date(year, month - 1, day);
+      // 2. Buat permintaan HTTP POST ke URL tersebut
+      const response = await fetch(url, {
+        method: 'POST', // Metode harus POST
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json', // Header standar
+        },
+        // Body bisa kosong jika tidak ada data tambahan yang perlu dikirim
+        body: JSON.stringify({}), 
+      });
 
-    // 4. Dapatkan kembali komponen tanggal untuk memastikan tidak ada pergeseran zona waktu.
-    //    Ini adalah langkah paling aman.
-    const finalDay = date.getDate();
-    const finalMonth = date.getMonth() + 1; // Tambah 1 lagi untuk tampilan
-    const finalYear = date.getFullYear();
+      // 3. Tangani respons dari backend
+      if (!response.ok) {
+        const errorData = await response.json();
+        // Tampilkan pesan error yang dikirim oleh backend
+        throw new Error(errorData.error || 'Failed to confirm the order.');
+      }
 
-    // 5. Format komponen agar selalu memiliki dua digit.
-    const formattedDay = ('0' + finalDay).slice(-2);
-    const formattedMonth = ('0' + finalMonth).slice(-2);
+      // Jika berhasil
+      toast({ title: 'Success', description: 'Sales Order has been confirmed.' });
+      
+      // 4. Ambil ulang data untuk me-refresh tabel
+      fetchSalesOrders();
 
-    // 6. Gabungkan menjadi format yang diinginkan.
-    return `${formattedDay}/${formattedMonth}/${finalYear}`;
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
-
-  const totals = calculateOrderTotals();
 
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-3xl font-bold tracking-tight">Sales Orders</h2>
-      </div>
-
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search sales orders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
+            <p className="text-muted-foreground">View, search, and manage all sales orders.</p>
         </div>
+        <Button onClick={() => navigate('/sales/orders/create')}>
+            <FileText className="mr-2 h-4 w-4" /> Create New Order
+        </Button>
       </div>
 
-      {/* Orders Table */}
       <Card>
+        <CardHeader>
+          <CardTitle>All Sales Orders</CardTitle>
+          <CardDescription>
+            <div className="relative mt-2 max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by Order #, Customer, or Status..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </CardDescription>
+        </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order Number</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.order_number}</TableCell>
-                  <TableCell>{order.customer_name || 'N/A'}</TableCell>
-                  <TableCell>{order.order_date}</TableCell>
-                  <TableCell>{order.due_date}</TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell>{formatRupiah(order.total_amount)}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(order)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Order Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : salesOrders.length > 0 ? (
+                  salesOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">
+                        {order.order_number}
+                      </TableCell>
+                      <TableCell>{order.customer_name || 'N/A'}</TableCell>
+                      <TableCell>{order.order_date}</TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatRupiah(order.total_amount)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              // 1. Hentikan event agar tidak merambat ke TableRow atau elemen lain
+                              e.stopPropagation(); 
+                              
+                              // 2. Jalankan fungsi handleEdit seperti biasa
+                              handleEdit(order);
+                            }}
+                            title="Edit Order"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {order.status === 'DRAFT' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleConfirmOrder(order.id)} // Panggil fungsi handler saat diklik
+                              title="Confirm Order"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Confirm
+                            </Button>
+                          )}
+                          {order.status === 'DRAFT' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(order.id)}
+                              title="Delete Draft Order"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Info className="h-8 w-8" />
+                        <span>No sales orders found.</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-muted-foreground">
+          Page {currentPage} of {totalPages}. Total {totalCount} orders.
+        </div>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
+                disabled={currentPage === 1}
+              />
+            </PaginationItem>
+            {/* Anda bisa menambahkan logika untuk menampilkan nomor halaman di sini */}
+            <PaginationItem>
+              <PaginationNext 
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
+                disabled={currentPage === totalPages}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-7xl h-[95vh] grid grid-rows-[auto_1fr_auto] p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle>Edit Sales Order: {editingOrder?.order_number}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto px-6">
+            {editingOrder && (
+              <SalesOrderForm
+                initialData={editingOrder}
+                onSubmit={handleUpdateSubmit}
+                customers={customers}
+                products={products}
+                isEditing={true}
+              />
+            )}
+          </div>
+
+          <DialogFooter className="p-6 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" form="sales-order-form">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

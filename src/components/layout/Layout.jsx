@@ -1,118 +1,28 @@
-import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   Building2, 
-  LayoutDashboard, 
-  Upload, 
-  Users, 
-  Package, 
-  ShoppingCart, 
-  FileText, 
   Settings, 
   LogOut, 
   Menu,
   Bell,
-  Search,
-  Factory,
   ChevronDown,
   ChevronRight
 } from 'lucide-react'
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { 
-    name: 'Inventory',
-    href: '/inventory/products',
-    icon: Package,
-    subItems: [
-      { name: 'Products', href: '/inventory/products' },
-      { name: 'Categories', href: '/inventory/categories' },
-      { name: 'Locations', href: '/inventory/locations' },
-      { name: 'Stock', href: '/inventory/stock' },
-      { name: 'Stock Movements', href: '/inventory/stock-movements' },
-      { name: 'Good Receipts', href: '/inventory/good-receipt' },
-      { name: 'Picking List', href: '/inventory/fulfillment' },
-      { name: 'Delivery Orders', href: '/inventory/delivery-orders' },
-    ]
-  },
-  {
-    name: 'Sales',
-    href: '/sales/orders',
-    icon: ShoppingCart,
-    subItems: [
-      { name: 'Customers', href: '/sales/customers' },
-      { name: 'Sales Orders', href: '/sales/orders' },
-      { name: 'Create Sales Order', href: '/sales/orders/create' },
-      { name: 'Order Approvals', href: '/sales/approvals' },
-      { name: 'Invoices', href: '/sales/invoices' },
-    ]
-  },
-  {
-    name: 'Manufacturing',
-    href: '/manufacturing/assembly-orders',
-    icon: Factory,
-    subItems: [
-      { name: 'Assembly Orders', href: '/manufacturing/assembly-orders' },
-      { name: 'Bill of Materials', href: '/manufacturing/boms' },
-    ]
-  },
-  {
-    name: 'Purchasing',
-    href: '/purchasing/purchase-orders',
-    icon: Package,
-    subItems: [
-      { name: 'Suppliers', href: '/purchasing/suppliers' },
-      { name: 'Purchase Orders', href: '/purchasing/purchase-orders' },
-      { name: 'Bills', href: '/purchasing/bills' },
-    ]
-  },
-  {
-    name: 'Accounting',
-    href: '/accounting/accounts',
-    icon: FileText,
-    subItems: [
-      { name: 'Chart of Accounts', href: '/accounting/accounts' },
-      { name: 'Journal Entries', href: '/accounting/journal-entries' },
-      { name: 'Financial Reports', href: '/accounting/reports' },
-    ]
-  },
-  { 
-    name: 'Analytics & Reports',
-    href: '/analytics/dashboard',
-    icon: FileText,
-    subItems: [
-      { name: 'Business Intelligence', href: '/analytics/dashboard' },
-      { name: 'Indonesian Reports', href: '/analytics/report' },
-      { name: 'KPI Management', href: '/analytics/kpi' },
-      { name: 'Report Builder', href: '/analytics/builder' },
-      { name: 'Report Templates', href: '/analytics/template' },
-    ]
-  },
-
-  { name: 'Data Import', href: '/data-import', icon: Upload },
-  { 
-    name: 'Users',
-    href: '/users/management',
-    icon: Users,
-    subItems: [
-      { name: 'User Management', href: '/users/management' },
-    ]
-  },
-  
-]
-
+import HorizontalNav from './HorizontalNav';
 function NavigationItems({ mobile = false, onItemClick = () => {} }) {
   const location = useLocation();
   //const [openSubMenus, setOpenSubMenus] = useState(null);
@@ -188,7 +98,6 @@ function NavigationItems({ mobile = false, onItemClick = () => {} }) {
     </nav>
   );
 }
-
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user, logout } = useAuth()
@@ -209,26 +118,6 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        
-        {/* 1. Desktop Sidebar */}
-        {/* Ditempatkan di luar Sheet Content/Trigger karena logikanya terpisah */}
-        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col z-20">
-          <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">Orchid ERP</h1>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 px-4 py-6 overflow-y-auto">
-              <NavigationItems />
-            </div>
-          </div>
-        </div>
 
         {/* 2. Mobile Sidebar Content */}
         {/* Ini adalah konten yang akan muncul saat sidebar mobile aktif */}
@@ -252,23 +141,34 @@ export default function Layout({ children }) {
 
         {/* 3. Main Content Area */}
         {/* Semua konten utama, termasuk header, ada di sini */}
-        <div className="lg:pl-64 flex flex-col flex-1">
+        <div className="flex flex-col flex-1">
           <header className="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
             <div className="px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
                 
-                {/* Mobile Menu Trigger */}
-                {/* Tombol ini hanya muncul di layar kecil (lg:hidden) */}
-                <div className="lg:hidden">
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Menu className="h-6 w-6" />
-                    </Button>
-                  </SheetTrigger>
-                </div>
+                <div className="flex items-center gap-6">
+                  {/* Mobile Menu Trigger */}
+                  {/* Tombol ini hanya muncul di layar kecil (lg:hidden) */}
+                  <div className="lg:hidden">
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Menu className="h-6 w-6" />
+                      </Button>
+                    </SheetTrigger>
+                  </div>
+                  {/* Logo */}
+                  <Link to="/dashboard" className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                      <Building2 className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    <h1 className="hidden sm:block text-lg font-bold text-gray-900 dark:text-white">
+                      Orchid ERP
+                    </h1>
+                  </Link>
 
-                {/* Spacer untuk mendorong item ke kanan di desktop */}
-                <div className="hidden lg:block w-full"></div>
+                  {/* +++ TAMPILKAN MENU HORIZONTAL DI SINI +++ */}
+                  <HorizontalNav />
+                </div>
 
                 {/* Actions (Notifications, User Menu) */}
                 <div className="flex items-center space-x-4 ml-auto">

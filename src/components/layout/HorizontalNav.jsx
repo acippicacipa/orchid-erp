@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard'},
@@ -19,7 +18,8 @@ const navigation = [
       { name: 'Categories', href: '/inventory/categories' },
       { name: 'Locations', href: '/inventory/locations' },
       { name: 'Suppliers', href: '/purchasing/suppliers' },
-      { name: 'Customers', href: '/sales/customers' }
+      { name: 'Customers', href: '/sales/customers' },
+      { name: 'Users', href: '/users/management' }
     ]
   },
   { 
@@ -81,13 +81,13 @@ const navigation = [
   },
 
   { name: 'Data Import', href: '/data-import'},
-  { 
-    name: 'Users',
-    href: '#',
-    subItems: [
-      { name: 'User Management', href: '/users/management' },
-    ]
-  },
+//   { 
+//     name: 'Users',
+//     href: '#',
+//     subItems: [
+//       { name: 'User Management', href: '/users/management' },
+//     ]
+//   },
   
 ]
 

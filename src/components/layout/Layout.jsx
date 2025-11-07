@@ -43,6 +43,8 @@ const navigation = [
       { name: 'Stock', href: '/inventory/stock' },
       { name: 'Stock Movements', href: '/inventory/stock-movements' },
       { name: 'Good Receipts', href: '/inventory/good-receipt' },
+      { name: 'Picking List', href: '/inventory/fulfillment' },
+      { name: 'Delivery Orders', href: '/inventory/delivery-orders' },
     ]
   },
   {
@@ -53,6 +55,7 @@ const navigation = [
       { name: 'Customers', href: '/sales/customers' },
       { name: 'Sales Orders', href: '/sales/orders' },
       { name: 'Create Sales Order', href: '/sales/orders/create' },
+      { name: 'Order Approvals', href: '/sales/approvals' },
       { name: 'Invoices', href: '/sales/invoices' },
     ]
   },

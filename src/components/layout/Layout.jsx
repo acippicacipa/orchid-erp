@@ -22,6 +22,8 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+import { navigation } from './navigation';
+
 import HorizontalNav from './HorizontalNav';
 function NavigationItems({ mobile = false, onItemClick = () => {} }) {
   const location = useLocation();
@@ -125,12 +127,14 @@ export default function Layout({ children }) {
           <div className="flex flex-col h-full bg-white dark:bg-gray-800">
             <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">Orchid ERP</h1>
-                </div>
+                <Link to="/dashboard" className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-gray-900 dark:text-white">Orchid ERP</h1>
+                  </div>
+                </Link>
               </div>
             </div>
             <div className="flex-1 px-4 py-6 overflow-y-auto">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -7,9 +7,95 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { PlusCircle, Edit, Trash2, Play, CheckCircle, XCircle, PackageCheck, ClipboardCheck } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Play, CheckCircle, XCircle, PackageCheck, ClipboardCheck, Printer, Search } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from "../ui/badge";
+import { useReactToPrint } from 'react-to-print';
+
+import ProductSearchDropdown from '../sales/ProductSearchDropdown';
+
+// +++ TAMBAHKAN KOMPONEN PRINTABLE BARU +++
+const PrintableMaterialList = React.forwardRef(({ order }, ref) => {
+  if (!order) return null;
+
+  return (
+    <div ref={ref} className="p-4 font-mono text-xs">
+      <h2 className="text-center font-bold text-sm mb-2">MATERIAL PICKING LIST</h2>
+      <div className="text-center mb-2">------------------------------------</div>
+      <div className="mb-2">
+        <p><strong>Order #:</strong> {order.order_number}</p>
+        <p><strong>Product:</strong> {order.product_name} {order.product_color}</p>
+        <p><strong>Qty:</strong> {parseInt(order.quantity)}</p>
+      </div>
+      <div className="text-center mb-2">------------------------------------</div>
+      <table className="w-full">
+        <thead>
+          <tr>
+            <th className="text-left">COMPONENT</th>
+            <th className="text-right">QTY</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(order.items || []).map(item => (
+            <tr key={item.id}>
+              <td className="py-1">{item.component_name}</td>
+              <td className="text-right py-1">{item.quantity}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="text-center mt-2">------------------------------------</div>
+      <p className="text-center text-xs mt-2">Generated: {new Date().toLocaleString()}</p>
+    </div>
+  );
+});
+PrintableMaterialList.displayName = 'PrintableMaterialList';
+
+const PrintableProductionReport = React.forwardRef(({ order, producedQty }, ref) => {
+  if (!order) return null;
+
+  // Hitung material yang terpakai berdasarkan kuantitas yang diproduksi
+  const usedItems = (order.items || []).map(item => {
+    const qtyPerProduct = item.quantity / order.quantity;
+    const usedQty = qtyPerProduct * producedQty;
+    return { ...item, used_quantity: usedQty };
+  });
+
+  return (
+    <div ref={ref} className="p-4 font-mono text-xs">
+      <h2 className="text-center font-bold text-sm mb-2">PRODUCTION REPORT</h2>
+      <div className="text-center mb-2">------------------------------------</div>
+      <div className="mb-2">
+        <p><strong>Order #:</strong> {order.order_number}</p>
+        <p><strong>Product:</strong> {order.product_name} {order.product_color}</p>
+        <p><strong>Qty Produced:</strong> {producedQty}</p>
+        <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+      </div>
+      <div className="text-center mb-2">------------------------------------</div>
+      <h3 className="font-bold mb-1">Materials Consumed:</h3>
+      <table className="w-full">
+        <thead>
+          <tr>
+            <th className="text-left w-[10%]">NO.</th>
+            <th className="text-left w-[60%]">COMPONENT</th>
+            <th className="text-right w-[30%]">QTY USED</th>
+          </tr>
+        </thead>
+        <tbody>
+          {usedItems.map((item, index) => (
+            <tr key={item.id}>
+              <td className="py-1">{index + 1}.</td>
+              <td className="py-1">{item.component_name}</td>
+              <td className="text-right py-1">{item.used_quantity.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="text-center mt-2">------------------------------------</div>
+    </div>
+  );
+});
+PrintableProductionReport.displayName = 'PrintableProductionReport';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -43,102 +129,16 @@ const formatRupiah = (amount) => {
 };
 
 // Product Search Component
-const ProductSearchDropdown = ({ onSelect, initialValue = '' }) => {
-  const { token } = useAuth(); // Ambil token dari context
-  const [searchTerm, setSearchTerm] = useState(initialValue);
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  // Fungsi untuk mencari produk ke backend
-  const searchProducts = async (query) => {
-    if (query.length < 3) {
-      setResults([]);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/inventory/products/?search=${query}`, {
-        headers: { 'Authorization': `Token ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        
-        // ==============================================================================
-        // PERUBAHAN UTAMA DI SINI: Mengambil data dari properti 'results'
-        // ==============================================================================
-        const products = Array.isArray(data.results) ? data.results : [];
-        
-        // Filter hanya untuk produk yang bisa diproduksi (jika diperlukan)
-        setResults(products.filter(p => p.is_manufactured));
-      }
-    } catch (error) {
-      console.error("Failed to search products:", error);
-      setResults([]); // Pastikan state adalah array kosong jika terjadi error
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Gunakan useEffect untuk memicu pencarian dengan debounce (penundaan)
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      searchProducts(searchTerm);
-    }, 300); // Tunda 300ms setelah user berhenti mengetik
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchTerm, token]);
-  
-  // Handler saat item di dropdown dipilih
-  const handleSelect = (product) => {
-    setSearchTerm(product.full_name); // Isi input dengan nama produk yang dipilih
-    onSelect(product); // Kirim seluruh objek produk ke parent component
-    setShowDropdown(false); // Sembunyikan dropdown
-  };
-
-  return (
-    <div className="relative">
-      <Input
-        placeholder="Type to search products..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        onFocus={() => setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 200)} // Delay untuk mengizinkan klik
-        required
-      />
-      {showDropdown && (
-        <div className="absolute top-full left-0 z-20 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {isLoading ? (
-            <div className="p-2 text-center text-sm text-gray-500">Searching...</div>
-          ) : results.length > 0 ? (
-            results.map(product => (
-              <div
-                key={product.id}
-                className="p-2 hover:bg-accent cursor-pointer"
-                onMouseDown={() => handleSelect(product)} // Gunakan onMouseDown
-              >
-                <div className="font-medium">{product.sku} - {product.name} {product.color}</div>
-                <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div>
-              </div>
-            ))
-          ) : (
-            searchTerm.length >= 3 && <div className="p-2 text-center text-sm text-gray-500">No products found.</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const AssemblyOrders = ( ) => {
   const [assemblyOrders, setAssemblyOrders] = useState([]);
-  const [products, setProducts] = useState([]);
   const [boms, setBoms] = useState([]);
+  const [availableBoms, setAvailableBoms] = useState([]); 
   const [locations, setLocations] = useState([]);
-  const [newOrder, setNewOrder] = useState({
+  const [searchTerm, setSearchTerm] = useState('');
+  const initialOrderState = {
     product: '',
+    product_name: '', // State untuk nama produk yang ditampilkan
     bom: '',
     quantity: '1',
     production_location: '',
@@ -148,7 +148,9 @@ const AssemblyOrders = ( ) => {
     description: '',
     notes: '',
     special_instructions: '',
-  });
+  };
+  const [newOrder, setNewOrder] = useState(initialOrderState);
+
   const [editingOrder, setEditingOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
@@ -159,6 +161,84 @@ const AssemblyOrders = ( ) => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportingOrder, setReportingOrder] = useState(null);
   const [quantityProduced, setQuantityProduced] = useState('');
+
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [orderToPrint, setOrderToPrint] = useState(null);
+  const printRef = useRef(null);
+
+  const [isProductionPrintDialogOpen, setIsProductionPrintDialogOpen] = useState(false);
+  const [reportToPrint, setReportToPrint] = useState(null); // Berisi { order, producedQty }
+  const productionPrintRef = useRef(null);
+
+  const handleProductionPrint = useReactToPrint({
+    content: () => productionPrintRef.current,
+  });
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+  });
+
+  const fetchBomsForProduct = async (productId) => {
+    if (!productId) {
+      setAvailableBoms([]); // Kosongkan jika tidak ada produk
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/inventory/boms/?product=${productId}`, {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const boms = data.results || data;
+        setAvailableBoms(boms);
+
+        // --- LOGIKA OTOMATIS ---
+        // Jika hanya ada satu BOM, atau ada satu BOM yang default, pilih otomatis
+        if (boms.length === 1) {
+          setNewOrder(prev => ({ ...prev, bom: boms[0].id.toString() }));
+        } else {
+          const defaultBom = boms.find(b => b.is_default);
+          if (defaultBom) {
+            setNewOrder(prev => ({ ...prev, bom: defaultBom.id.toString() }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch BOMs for product", error);
+    }
+  };
+
+  const fetchAssemblyOrders = async (searchQuery = '') => {
+    try {
+      const token = localStorage.getItem('token');
+      const url = new URL(`${API_BASE_URL}/inventory/assembly-orders/`);
+      if (searchQuery) {
+        url.searchParams.append('search', searchQuery);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch assembly orders');
+      
+      const data = await response.json();
+      setAssemblyOrders(data.results || data);
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchAssemblyOrders(searchTerm);
+    }, 500); // Tunda 500ms setelah user berhenti mengetik
+
+    // Fetch data lain hanya sekali saat komponen dimuat
+    if (!locations.length) fetchLocations();
+    
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleCheckAvailability = async (order) => {
     setLoadingCheck(true);
@@ -185,57 +265,6 @@ const AssemblyOrders = ( ) => {
       setIsAvailabilityModalOpen(false); // Tutup modal jika error
     } finally {
       setLoadingCheck(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAssemblyOrders();
-    fetchProducts();
-    fetchBoms();
-    fetchLocations();
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/inventory/products/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
-      const data = await response.json();
-      setProducts(Array.isArray(data.results) ? data.results : []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchAssemblyOrders = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/inventory/assembly-orders/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch assembly orders');
-      }
-      const data = await response.json();
-      setAssemblyOrders(Array.isArray(data.results) ? data.results : []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
     }
   };
 
@@ -292,10 +321,7 @@ const AssemblyOrders = ( ) => {
   };
 
   const handleSelectChange = (name, value) => {
-    setNewOrder(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setNewOrder(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -371,21 +397,31 @@ const AssemblyOrders = ( ) => {
     }
   };
 
-  const handleEdit = (order) => {
+  const handleEdit = async (order) => {
     setEditingOrder(order);
+    setIsModalOpen(true);
+
+    // Ambil BOM yang relevan untuk produk ini
+    const token = localStorage.getItem('token');
+    const bomResponse = await fetch(`${API_BASE_URL}/inventory/boms/?product=${order.product}`, {
+      headers: { 'Authorization': `Token ${token}` },
+    });
+    if (bomResponse.ok) {
+      const bomData = await bomResponse.json();
+      setBoms(bomData.results || bomData);
+    }
+
+    if (order.product) {
+      fetchBomsForProduct(order.product);
+    }
+
+    // Set state form dengan data dari order yang dipilih
     setNewOrder({
-    // Jika order.product ada, ambil id-nya. Jika tidak, set ke string kosong.
-      product: order.product?.id?.toString() ?? '',
-      
-      // Lakukan hal yang sama untuk BOM
-      bom: order.bom?.id?.toString() ?? '',
-      
+      product: order.product?.toString() ?? '',
+      product_name: `${order.product_name || ''} ${order.product_color || ''}`.trim(),
+      bom: order.bom?.toString() ?? '',
       quantity: order.quantity,
-      
-      // Dan juga untuk production_location
-      production_location: order.production_location?.id?.toString() ?? '',
-      
-      // Sisa field lainnya sudah aman
+      production_location: order.production_location?.toString() ?? '',
       planned_start_date: order.planned_start_date ? order.planned_start_date.split('T')[0] : '',
       planned_completion_date: order.planned_completion_date ? order.planned_completion_date.split('T')[0] : '',
       priority: order.priority || 'NORMAL',
@@ -393,7 +429,11 @@ const AssemblyOrders = ( ) => {
       notes: order.notes || '',
       special_instructions: order.special_instructions || '',
     });
-    setIsModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setNewOrder(initialOrderState);
+    setAvailableBoms([]);
   };
 
   const handleDelete = async (id) => {
@@ -424,6 +464,13 @@ const AssemblyOrders = ( ) => {
   };
 
   const handleAction = async (order, action) => {
+    const actionMessages = {
+      'start-production': 'Are you sure you want to start production for this order?',
+      'complete': 'Are you sure you want to mark this order as completed?',
+      'cancel': 'Are you sure you want to cancel this order? This may affect stock allocation.',
+    };
+    if (!window.confirm(actionMessages[action] || `Are you sure you want to perform this action?`)) return;
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/inventory/assembly-orders/${order.id}/${action}/`, {
@@ -453,24 +500,33 @@ const AssemblyOrders = ( ) => {
     }
   };
 
-  // const getProductFullName = (product) => {
-  //   if (!product) return 'N/A';
-  //   const parts = [product.name];
-  //   if (product.brand) parts.push(`Brand: ${product.brand}`);
-  //   if (product.color) parts.push(`Color: ${product.color}`);
-  //   if (product.size) parts.push(`Size: ${product.size}`);
-  //   return parts.join(' | ');
-  // };
-
   const handleReleaseFromCheck = async () => {
+    const confirmMessage = availabilityData.is_fully_available
+      ? 'All materials are available. Do you want to release this order for production?'
+      : 'There is a material shortage. Do you want to release this order anyway?';
+    if (!window.confirm(confirmMessage)) return;
+    
     if (!orderBeingChecked) return;
-
-    // Panggil fungsi handleAction yang sudah ada
-    await handleAction(orderBeingChecked, 'release');
-
-    // Tutup dialog setelah aksi selesai
+    // 1. Set order yang akan di-print
+    setOrderToPrint(orderBeingChecked);  
+    // 2. Buka dialog print
+    setIsPrintDialogOpen(true);
+    // 3. Tutup dialog availability check
     setIsAvailabilityModalOpen(false);
-    setOrderBeingChecked(null); // Bersihkan state
+  };
+
+  const confirmReleaseAndPrint = async () => {
+    if (!orderToPrint) return;
+
+    // Panggil handlePrint untuk membuka dialog cetak browser
+    handlePrint();
+
+    // Panggil API untuk mengubah status order
+    await handleAction(orderToPrint, 'release');
+
+    // Tutup dialog print setelah selesai
+    setIsPrintDialogOpen(false);
+    setOrderToPrint(null);
   };
 
   const openReportDialog = (order) => {
@@ -483,6 +539,8 @@ const AssemblyOrders = ( ) => {
 
   // --- FUNGSI BARU UNTUK MENGIRIM DATA HASIL PRODUKSI ---
   const handleReportProduction = async () => {
+    if (!window.confirm(`Are you sure you want to report ${quantityProduced} units as finished? This will consume materials from stock.`)) return;
+
     if (!reportingOrder || !quantityProduced || parseFloat(quantityProduced) <= 0) {
       toast({ title: "Error", description: "Please enter a valid quantity.", variant: "destructive" });
       return;
@@ -492,10 +550,7 @@ const AssemblyOrders = ( ) => {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/inventory/assembly-orders/${reportingOrder.id}/report-production/`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Token ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity_produced: quantityProduced }),
       });
 
@@ -505,7 +560,17 @@ const AssemblyOrders = ( ) => {
       }
 
       toast({ title: "Success", description: "Production reported and stock updated." });
+      
+      // --- LOGIKA BARU SETELAH SUKSES ---
+      // 1. Siapkan data untuk dicetak
+      setReportToPrint({ order: reportingOrder, producedQty: parseFloat(quantityProduced) });
+      
+      // 2. Buka dialog print
+      setIsProductionPrintDialogOpen(true);
+      
+      // 3. Tutup dialog report
       setIsReportModalOpen(false);
+      
       fetchAssemblyOrders(); // Refresh daftar order
 
     } catch (error) {
@@ -547,20 +612,28 @@ const AssemblyOrders = ( ) => {
 
   return (
     <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="text-3xl font-bold tracking-tight mb-2">Assembly Order Management</h2>
+      <div className="flex justify-between items-center mb-2 gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Assembly Orders</h2>
+          <p className="text-muted-foreground">Manage and track all production orders.</p>
+        </div>
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by Order #, Product, or Status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
               setEditingOrder(null);
-              setNewOrder({
-                product: '', bom: '', quantity: '1', production_location: '',
-                planned_start_date: new Date().toISOString().split('T')[0],
-                planned_completion_date: new Date().toISOString().split('T')[0],
-                priority: 'NORMAL', description: '', notes: '', special_instructions: '',
-              });
+              setNewOrder(initialOrderState);
+              setAvailableBoms([]); // Jangan lupa reset BOM
             }}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create New Assembly Order
+              <PlusCircle className="mr-2 h-4 w-4" /> Create New
             </Button>
           </DialogTrigger>
           {/* ============================================================================== */}
@@ -576,24 +649,42 @@ const AssemblyOrders = ( ) => {
                 <div className="grid gap-2">
                   <Label htmlFor="product">Product to Produce</Label>
                   <ProductSearchDropdown
-                    // --- PERUBAHAN DI SINI ---
-                    // Gunakan optional chaining (?.) untuk keamanan
-                    initialValue={editingOrder?.product?.name || ''}
-                    onSelect={(product) => {
-                      setNewOrder(prev => ({ ...prev, product: product.id.toString() }));
+                    value={newOrder.product_name}
+                    onValueChange={(text) => {
+                      setNewOrder(prev => ({ ...prev, product_name: text, product: '', bom: '' })); // Reset BOM saat produk diubah
+                      setAvailableBoms([]);
                     }}
+                    onSelect={(product) => {
+                      setNewOrder(prev => ({
+                        ...prev,
+                        product: product.id.toString(),
+                        product_name: `${product.name} ${product.color || ''}`.trim(),
+                        bom: '',
+                      }));
+                      fetchBomsForProduct(product.id);
+                    }}
+                    placeholder="Search manufactured product..."
                   />
                 </div>
                 
                 <div className="grid gap-2">
                   <Label htmlFor="bom">Bill of Materials</Label>
-                  <Select name="bom" value={newOrder.bom} onValueChange={(value) => handleSelectChange('bom', value)} required>
+                  <Select 
+                    name="bom" 
+                    value={newOrder.bom} 
+                    onValueChange={(value) => handleSelectChange('bom', value)} 
+                    required
+                    disabled={!newOrder.product} // Disable jika produk belum dipilih
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a BOM" />
+                      <SelectValue placeholder={!newOrder.product ? "Select a product first" : "Select a BOM"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {boms.map(b => (
-                        <SelectItem key={b.id} value={b.id.toString()}>{b.bom_number} - {b.product_name} {b.product_color}</SelectItem>
+                      {/* Gunakan state `availableBoms` */}
+                      {availableBoms.map(b => (
+                        <SelectItem key={b.id} value={b.id.toString()}>
+                          {b.bom_number} - v{b.version} {b.is_default ? '(Default)' : ''}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -659,12 +750,12 @@ const AssemblyOrders = ( ) => {
       </div>
       <div className="flex justify-end mb-4">  
         <Dialog open={isAvailabilityModalOpen} onOpenChange={setIsAvailabilityModalOpen}>
-          <DialogContent className="sm:max-w-3xl">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl h-[80vh] flex flex-col p-0">
+            <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle>Material Availability Check</DialogTitle>
               {availabilityData && <p className="text-sm text-muted-foreground">For Assembly Order: {availabilityData.order_number}</p>}
             </DialogHeader>
-            <div className="py-4">
+            <div className="flex-grow overflow-y-auto p-6">
               {loadingCheck ? (
                 <div className="text-center">Checking stock levels...</div>
               ) : availabilityData ? (
@@ -707,7 +798,7 @@ const AssemblyOrders = ( ) => {
                 <div className="text-center text-muted-foreground">No data to display.</div>
               )}
             </div>
-            <DialogFooter className="sm:justify-between">
+            <DialogFooter className="p-6 pt-4 border-t sm:justify-between">
               <Button variant="outline" onClick={() => setIsAvailabilityModalOpen(false)}>Close</Button>
               
               {/* Tampilkan tombol Release hanya jika data sudah dimuat dan tidak ada error */}
@@ -721,6 +812,28 @@ const AssemblyOrders = ( ) => {
                   {availabilityData.is_fully_available ? 'Release Order' : 'Release Anyway (Shortage)'}
                 </Button>
               )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Print Material List</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                A material list for order <strong>{orderToPrint?.order_number}</strong> is ready to be printed.
+              </p>
+            </DialogHeader>
+            <div className="py-4 border rounded-lg my-4">
+              {/* Pratinjau kecil dari apa yang akan dicetak */}
+              <div className="max-h-64 overflow-y-auto px-2">
+                <PrintableMaterialList order={orderToPrint} ref={printRef} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Cancel</Button>
+              <Button onClick={confirmReleaseAndPrint}>
+                Print & Confirm Release
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -767,7 +880,7 @@ const AssemblyOrders = ( ) => {
               <TableHead>Order #</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>BOM</TableHead>
-              <TableHead>Qty to Produce</TableHead>
+              <TableHead>Qty Plan</TableHead>
               <TableHead>Qty Produced</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
@@ -775,7 +888,7 @@ const AssemblyOrders = ( ) => {
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="text-xs">
             {assemblyOrders.length > 0 ? (
               assemblyOrders.map(order => (
                 <TableRow key={order.id}>
@@ -788,9 +901,17 @@ const AssemblyOrders = ( ) => {
                   <TableCell>{STATUS_CHOICES.find(s => s.value === order.status)?.label || order.status}</TableCell>
                   <TableCell>{getPriorityBadge(order.priority)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(order)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    {order.status === 'DRAFT' && (
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(order)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {order.status === 'DRAFT' && (
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(order.id)} className="text-red-500">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+
                     {order.status === 'DRAFT' && (
                       <Button variant="outline" size="sm" onClick={() => handleCheckAvailability(order)} title="Check Material Availability">
                         <PackageCheck className="h-4 w-4" />
@@ -816,22 +937,44 @@ const AssemblyOrders = ( ) => {
                         <XCircle className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(order.id)} className="text-red-500">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
                 <TableCell colSpan={9} className="h-24 text-center">
-                  No assembly orders found.
+                  {searchTerm ? `No orders found for "${searchTerm}".` : 'No assembly orders found.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+      <Dialog open={isProductionPrintDialogOpen} onOpenChange={setIsProductionPrintDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Print Production Report</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              A report for order <strong>{reportToPrint?.order?.order_number}</strong> is ready.
+            </p>
+          </DialogHeader>
+          <div className="py-4 border rounded-lg my-4">
+            <div className="max-h-64 overflow-y-auto px-2">
+              <PrintableProductionReport 
+                ref={productionPrintRef} 
+                order={reportToPrint?.order} 
+                producedQty={reportToPrint?.producedQty} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsProductionPrintDialogOpen(false)}>Close</Button>
+            <Button onClick={handleProductionPrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

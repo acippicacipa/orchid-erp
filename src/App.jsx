@@ -34,6 +34,9 @@ import KPIManagement from './components/analytics/KPIManagement'
 import ReportBuilder from './components/analytics/ReportBuilder'
 import ReportTemplates from './components/analytics/ReportTemplates'
 import UserManagement from './components/users/UserManagement'
+import SalesOrderApproval from './components/sales/SalesOrderApproval'
+import OrderFulfillment from './components/inventory/OrderFulfillment'
+import DeliveryOrderPage from './components/inventory/DeliveryOrderPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -157,6 +160,14 @@ function AppRoutes() {
         } 
       />
       <Route 
+            path="/inventory/fulfillment" 
+            element={<ProtectedRoute><Layout><OrderFulfillment /></Layout></ProtectedRoute>} 
+          />
+      <Route 
+        path="/inventory/delivery-orders" 
+        element={<ProtectedRoute><Layout><DeliveryOrderPage /></Layout></ProtectedRoute>} 
+      />
+      <Route 
         path="/manufacturing/boms" 
         element={
           <ProtectedRoute>
@@ -265,6 +276,10 @@ function AppRoutes() {
             </Layout>
           </ProtectedRoute>
         } 
+      />
+      <Route 
+        path="/sales/approvals" 
+        element={<ProtectedRoute><Layout><SalesOrderApproval /></Layout></ProtectedRoute>} 
       />
       <Route 
         path="/sales/invoices" 

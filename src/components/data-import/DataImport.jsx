@@ -17,6 +17,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter, // Import DialogFooter
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -50,6 +51,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 const StatusBadge = ({ status }) => {
   const statusConfig = {
     PENDING: { color: 'bg-gray-100 text-gray-800', icon: Clock },
@@ -77,6 +80,8 @@ const getTemplateIcon = (templateType) => {
     'CUSTOMERS': Users,
     'SUPPLIERS': Building,
     'ITEMS': Package,
+    'MAIN_CATEGORIES': FileText,
+    'SUB_CATEGORIES': FileText,
     'CATEGORIES': FileText,
     'LOCATIONS': MapPin,
     'INVENTORY': Package,
@@ -269,6 +274,8 @@ export default function DataImport() {
   const [showErrorsDialog, setShowErrorsDialog] = useState(false)
   const [showLogsDialog, setShowLogsDialog] = useState(false)
   const [selectedImportId, setSelectedImportId] = useState(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   useEffect(() => {
     fetchTemplates()
@@ -277,7 +284,7 @@ export default function DataImport() {
 
   const fetchTemplates = async () => {
     try {
-      const response = await apiCall('/data-import/templates/')
+      const response = await apiCall(`${API_BASE_URL}/data-import/templates/`)
       if (response.ok) {
         const data = await response.json()
         setTemplates(data.templates || [])
@@ -293,7 +300,7 @@ export default function DataImport() {
 
   const fetchImportHistory = async () => {
     try {
-      const response = await apiCall('/data-import/history/')
+      const response = await apiCall(`${API_BASE_URL}/data-import/history/`)
       if (response.ok) {
         const data = await response.json()
         setImportHistory(data.imports || [])
@@ -309,7 +316,7 @@ export default function DataImport() {
 
   const fetchValidationErrors = async (importId) => {
     try {
-      const response = await apiCall(`/data-import/validate/?import_id=${importId}`)
+      const response = await apiCall(`${API_BASE_URL}/data-import/validate/?import_id=${importId}`)
       if (response.ok) {
         const data = await response.json()
         setValidationErrors(data.errors || [])
@@ -327,7 +334,7 @@ export default function DataImport() {
 
   const fetchImportLogs = async (importId) => {
     try {
-      const response = await apiCall(`/data-import/logs/?import_id=${importId}`)
+      const response = await apiCall(`${API_BASE_URL}/data-import/logs/?import_id=${importId}`)
       if (response.ok) {
         const data = await response.json()
         setImportLogs(data.logs || [])
@@ -357,9 +364,10 @@ export default function DataImport() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('template_id', selectedTemplate)
+    
 
     try {
-      const response = await apiCall('/data-import/upload/', {
+      const response = await apiCall(`${API_BASE_URL}/data-import/upload/`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -396,7 +404,7 @@ export default function DataImport() {
   const handleImportData = async (importId) => {
     setLoading(true)
     try {
-      const response = await apiCall('/data-import/import/', {
+      const response = await apiCall(`${API_BASE_URL}/data-import/import/`, {
         method: 'POST',
         body: JSON.stringify({ import_id: importId }),
       })
@@ -429,7 +437,7 @@ export default function DataImport() {
 
   const downloadTemplate = async (templateId) => {
     try {
-      const response = await apiCall(`/data-import/templates/?template_id=${templateId}`)
+      const response = await apiCall(`${API_BASE_URL}/data-import/templates/?template_id=${templateId}`)
       
       if (response.ok) {
         const blob = await response.blob()
@@ -482,8 +490,50 @@ export default function DataImport() {
     return colorMap[templateType] || 'bg-gray-100 text-gray-800'
   }
 
+  const handleDeleteImport = async (importId) => {
+    if (!importId) return;
+
+    setLoading(true); // Gunakan state loading untuk menonaktifkan tombol
+    try {
+      // Panggil endpoint DELETE dengan ID di URL
+      const response = await apiCall(`${API_BASE_URL}/data-import/history/${importId}/`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Import history record has been deleted.",
+        });
+        fetchImportHistory(); // Refresh daftar setelah berhasil dihapus
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete the record.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while deleting.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false); // Tutup dialog setelah selesai
+      setItemToDelete(null);
+    }
+  };
+
+  const openDeleteConfirmation = (importId) => {
+    setItemToDelete(importId);
+    setShowDeleteDialog(true);
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 space-y-6">
       {/* Header */}
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Data Import</h1>
@@ -771,7 +821,12 @@ export default function DataImport() {
                           )}
                         </div>
                         
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => openDeleteConfirmation(importItem.id)} // Panggil fungsi untuk membuka dialog
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -782,6 +837,29 @@ export default function DataImport() {
             </CardContent>
           </Card>
         </TabsContent>
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you absolutely sure?</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. This will permanently delete the import record
+                and all associated error logs. The uploaded file itself will remain on the server.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteImport(itemToDelete)}
+                disabled={loading}
+              >
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="space-y-6">

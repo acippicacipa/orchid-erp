@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+// import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuLabel,
+//   DropdownMenuSeparator,
+//   DropdownMenuTrigger,
+// } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   Building2, 
@@ -22,10 +22,10 @@ import {
   ChevronRight
 } from 'lucide-react'
 
-import { navigation } from './navigation';
-
+import { navigation as allNavigationItems } from './navigation';
 import HorizontalNav from './HorizontalNav';
-function NavigationItems({ mobile = false, onItemClick = () => {} }) {
+
+function NavigationItems({ navigation = [], mobile = false, onItemClick = () => {} }) {
   const location = useLocation();
   //const [openSubMenus, setOpenSubMenus] = useState(null);
   const [openSubMenu, setOpenSubMenu] = useState(null);
@@ -100,10 +100,52 @@ function NavigationItems({ mobile = false, onItemClick = () => {} }) {
     </nav>
   );
 }
+
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, userRole, logout } = useAuth();
+  console.log("Current User Role:", userRole);
+  const [filteredNavigation, setFilteredNavigation] = useState([]);
   const navigate = useNavigate()
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!userRole) {
+      setFilteredNavigation([]); // Jika tidak ada peran, kosongkan navigasi
+      return;
+    }
+
+    const filterItemsByRole = (items, role) => {
+      const accessibleItems = [];
+
+      items.forEach(item => {
+        // Cek apakah item utama bisa diakses
+        if (item.roles && item.roles.includes(role)) {
+          
+          // Jika item punya sub-item, kita perlu memprosesnya
+          if (item.subItems && item.subItems.length > 0) {
+            const accessibleSubItems = item.subItems.filter(subItem => 
+              subItem.roles && subItem.roles.includes(role)
+            );
+
+            // Hanya tambahkan item utama jika ia masih punya sub-item yang bisa diakses
+            if (accessibleSubItems.length > 0) {
+              accessibleItems.push({ ...item, subItems: accessibleSubItems });
+            }
+          } else {
+            // Jika item tidak punya sub-item, langsung tambahkan jika rolenya cocok
+            accessibleItems.push(item);
+          }
+        }
+      });
+
+      return accessibleItems;
+    };
+
+    setFilteredNavigation(filterItemsByRole(allNavigationItems, userRole));
+  }, [userRole]);
+  console.log("Filtered Navigation:", filteredNavigation);
+
 
   const handleLogout = async () => {
     await logout()
@@ -120,9 +162,6 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-
-        {/* 2. Mobile Sidebar Content */}
-        {/* Ini adalah konten yang akan muncul saat sidebar mobile aktif */}
         <SheetContent side="left" className="w-64 p-0">
           <div className="flex flex-col h-full bg-white dark:bg-gray-800">
             <div className="flex items-center flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -138,7 +177,11 @@ export default function Layout({ children }) {
               </div>
             </div>
             <div className="flex-1 px-4 py-6 overflow-y-auto">
-              <NavigationItems mobile onItemClick={() => setSidebarOpen(false)} />
+              <NavigationItems 
+                navigation={filteredNavigation} 
+                mobile 
+                onItemClick={() => setSidebarOpen(false)} 
+              />
             </div>
           </div>
         </SheetContent>
@@ -171,48 +214,52 @@ export default function Layout({ children }) {
                   </Link>
 
                   {/* +++ TAMPILKAN MENU HORIZONTAL DI SINI +++ */}
-                  <HorizontalNav />
+                  <HorizontalNav navigation={filteredNavigation} />
                 </div>
 
                 {/* Actions (Notifications, User Menu) */}
                 <div className="flex items-center space-x-4 ml-auto">
-                  <Button variant="ghost" size="icon">
-                    <Bell className="h-5 w-5" />
+                  <Button variant="ghost" size="icon" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
                   </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                            {getUserInitials()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56" align="end" forceMount>
-                      <DropdownMenuLabel className="font-normal">
-                        <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            {user?.full_name || user?.username}
-                          </p>
-                          <p className="text-xs leading-none text-muted-foreground">
-                            {user?.email}
-                          </p>
-                        </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleLogout}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Log out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {/* <div 
+                    onMouseEnter={() => setIsUserMenuOpen(true)} 
+                    onMouseLeave={() => setIsUserMenuOpen(false)}
+                  >
+                    <DropdownMenu open={isUserMenuOpen} onOpenChange={setIsUserMenuOpen}>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                              {getUserInitials()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56" align="end" forceMount>
+                        <DropdownMenuLabel className="font-normal">
+                          <div className="flex flex-col space-y-1">
+                            <p className="text-sm font-medium leading-none">
+                              {user?.full_name || user?.username}
+                            </p>
+                            <p className="text-xs leading-none text-muted-foreground">
+                              {user?.email}
+                            </p>
+                          </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>Settings</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleLogout}>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span>Log out</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div> */}
                 </div>
               </div>
             </div>

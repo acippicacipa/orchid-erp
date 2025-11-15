@@ -6,11 +6,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu'; 
 
-import { navigation } from './navigation';
-
-const HorizontalNav = () => {
+const HorizontalNav = ({ navigation = [] }) => {
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState(null);
 

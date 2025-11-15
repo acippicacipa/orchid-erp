@@ -23,10 +23,10 @@ import { useNavigate } from 'react-router-dom';
 import SalesOrderForm from './SalesOrderForm'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination'; // Impor komponen Pagination
+import { useAuth } from '@/contexts/AuthContext';
 
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // Helper untuk format mata uang
 const formatRupiah = (amount ) => {
@@ -63,6 +63,7 @@ const SalesOrderManagement = () => {
   const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // --- 2. TAMBAHKAN STATE UNTUK DIALOG ---
   const [isDialogOpen, setIsDialogOpen] = useState(false);

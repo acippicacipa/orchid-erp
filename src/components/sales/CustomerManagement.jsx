@@ -118,7 +118,7 @@ const CustomerGroupDialog = ({ isOpen, onOpenChange, customerGroups, onGroupsUpd
         <DialogHeader>
           <DialogTitle>Manage Customer Groups</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 flex-grow overflow-y-auto p-6">
           {/* Form untuk menambah grup baru */}
           <div className="p-4 border rounded-lg space-y-3">
             <h3 className="font-semibold text-lg">Add New Group</h3>

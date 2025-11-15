@@ -9,7 +9,7 @@ import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
 import { PlusCircle, Edit, Trash2, DollarSign, Calendar, User } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.11:8000/api';
 
 // Format currency to Indonesian Rupiah
 const formatRupiah = (amount) => {

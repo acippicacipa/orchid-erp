@@ -65,15 +65,15 @@ export const PurchaseOrderView = React.forwardRef(({ order }, ref) => {
         <section className="grid grid-cols-2 gap-8 mt-6">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-sm font-bold uppercase text-gray-500 mb-2">Supplier</h3>
-            <p className="text-lg font-semibold text-gray-800">{order.supplier?.name || 'N/A'}</p>
+            <p className="text-lg font-semibold text-gray-800">{order.supplier_name || 'N/A'}</p>
             <p className="text-sm text-gray-600">{order.supplier?.address?.street || 'Alamat tidak tersedia'}</p>
-            <p className="text-sm text-gray-600">{order.supplier?.email || ''}</p>
-            <p className="text-sm text-gray-600">{order.supplier?.phone || ''}</p>
+            <p className="text-sm text-gray-600">{order.supplier_email || ''}</p>
+            <p className="text-sm text-gray-600">{order.supplier_phone || ''}</p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-sm font-bold uppercase text-gray-500 mb-2">Ship To</h3>
             <p className="text-lg font-semibold text-gray-800">Gudang Utama</p>
-            <p className="text-sm text-gray-600">Alamat Gudang Anda, Kota, Kode Pos</p>
+            <p className="text-sm text-gray-600">Jl. Pakal No. 21, Pakal, Surabaya</p>
             <p className="text-sm text-gray-600">Expected Delivery: {formatDate(order.expected_delivery_date)}</p>
           </div>
         </section>

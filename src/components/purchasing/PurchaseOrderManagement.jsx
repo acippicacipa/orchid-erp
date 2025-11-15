@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Search, Plus, Edit, X } from 'lucide-react';
+import { Search, Plus, Edit, X, Check, Loader2 } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { Checkbox } from '../ui/checkbox';
@@ -17,6 +17,7 @@ import { PurchaseOrderView } from './PurchaseOrderView';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf'; // 4. Impor jsPDF
 import html2canvas from 'html2canvas';
+import { useReactToPrint } from 'react-to-print';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -239,11 +240,18 @@ const PurchaseOrderManagement = () => {
   const [editingOrder, setEditingOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const [viewingOrder, setViewingOrder] = useState(null); // State untuk PO yang akan dilihat
+  const [viewingOrder, setViewingOrder] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [exportingOrder, setExportingOrder] = useState(null);
   const printRef = useRef();
   const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const { user } = useAuth();
+
+  // +++ TAMBAH +++ Logika baru untuk print/download menggunakan useReactToPrint
+    const handlePrint = useReactToPrint({
+      content: () => printRef.current,
+      documentTitle: `PO-${viewingOrder?.order_number || 'document'}`,
+      onAfterPrint: () => toast({ title: "Download/Print complete!" }),
+    });
 
   const handleExportToPdf = async () => {
     const element = printRef.current;
@@ -330,8 +338,6 @@ const PurchaseOrderManagement = () => {
   };
 
   const handleView = (order) => {
-    // Panggil API untuk mendapatkan detail lengkap jika perlu, atau langsung gunakan data dari tabel
-    // Untuk sekarang, kita asumsikan data dari tabel sudah cukup
     setViewingOrder(order);
     setIsViewDialogOpen(true);
   };
@@ -341,46 +347,6 @@ const PurchaseOrderManagement = () => {
     setExportingOrder(order);
     toast({ title: "Preparing PDF...", description: "Your download will start shortly." });
   };
-
-  useEffect(() => {
-    // Jika tidak ada order yang akan diekspor, atau ref belum siap, jangan lakukan apa-apa
-    if (!exportingOrder || !printRef.current) return;
-
-    const exportPdf = async () => {
-      const element = printRef.current;
-      const canvas = await html2canvas(element, { scale: 2 });
-      const data = canvas.toDataURL('image/png');
-
-      const pdf = new jsPDF('p', 'pt', 'a4');
-      const imgProperties = pdf.getImageProperties(data);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
-      
-      let heightLeft = pdfHeight;
-      let position = 0;
-
-      pdf.addImage(data, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
-
-      while (heightLeft >= 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(data, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
-      }
-      
-      pdf.save(`PO-${exportingOrder.order_number}.pdf`);
-
-      // Setelah selesai, reset state agar useEffect tidak berjalan lagi
-      setExportingOrder(null);
-    };
-
-    // Beri sedikit waktu agar komponen tersembunyi benar-benar ter-render di DOM
-    const timer = setTimeout(exportPdf, 100);
-
-    return () => clearTimeout(timer); // Cleanup timer
-
-  }, [exportingOrder]);
 
   const fetchSuppliers = async () => {
     try {
@@ -606,6 +572,39 @@ const PurchaseOrderManagement = () => {
     (order.status?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
+  const handleApprove = async (orderId) => {
+    if (!window.confirm("Are you sure you want to approve this Purchase Order? This action cannot be undone.")) return;
+    
+    setLoading(true); // Gunakan state loading global
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/purchasing/purchase-orders/${orderId}/approve/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token ${token}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to approve PO');
+      }
+
+      const updatedOrder = await response.json();
+
+      toast({ title: "Success", description: "Purchase Order has been approved." });
+      
+      // Update state secara lokal agar UI langsung berubah tanpa perlu fetch ulang
+      setPurchaseOrders(prevOrders => 
+        prevOrders.map(o => o.id === orderId ? updatedOrder : o)
+      );
+      setViewingOrder(updatedOrder); // Update juga order yang sedang dilihat di dialog
+
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-2">
@@ -819,18 +818,34 @@ const PurchaseOrderManagement = () => {
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent className="sm:max-w-4xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
             <DialogHeader className="p-6 pb-4 border-b">
-                <DialogTitle>
-                  Purchase Order View
-                </DialogTitle>
-              </DialogHeader>
+              <DialogTitle>
+                Purchase Order View
+              </DialogTitle>
+            </DialogHeader>
             <div className="overflow-y-auto">
-              {viewingOrder && <PurchaseOrderView order={viewingOrder}/>}
+              {viewingOrder && <PurchaseOrderView order={viewingOrder} ref={printRef} />}
             </div>
+            <DialogFooter className="p-6 pt-4 border-t">
+              <div>
+                {/* Tombol Approve hanya muncul jika status DRAFT */}
+                {viewingOrder?.status === 'DRAFT' && (
+                  <Button 
+                    onClick={() => handleApprove(viewingOrder.id)} 
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                    Approve
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+                <Button onClick={handlePrint}><Download className="mr-2 h-4 w-4" /> Download PDF</Button>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
-        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          {exportingOrder && <PurchaseOrderView order={exportingOrder} ref={printRef} />}
-        </div>
       </div>
 
       {/* Search */}
@@ -884,12 +899,14 @@ const PurchaseOrderManagement = () => {
                         <Button variant="outline" size="sm" onClick={() => handleView(order)} title="View Document">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleInitiateExport(order)} title="Download PDF">
+                        <Button variant="outline" size="sm" onClick={() => handleView(order)} title="Download PDF">
                           <Download className="h-4 w-4" />
                         </Button>
+                        {viewingOrder?.status === 'DRAFT' && (
                         <Button variant="outline" size="sm" onClick={() => handleEdit(order)} title="Edit Order">
                           <Edit className="h-4 w-4" />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo } from 'react'
 
 const AuthContext = createContext()
 
@@ -15,7 +15,8 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  //const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
   useEffect(() => {
     // Check if user is already logged in
@@ -106,6 +107,18 @@ export function AuthProvider({ children }) {
       },
     }
 
+    const defaultHeaders = {
+      // Header Authorization selalu ditambahkan jika token ada
+      ...(token && { 'Authorization': `Token ${token}` }),
+    };
+
+    const isFormData = options.body instanceof FormData;
+
+    // 2. Hanya tambahkan 'Content-Type' jika BUKAN FormData.
+    if (!isFormData) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
+
     const mergedOptions = {
       ...defaultOptions,
       ...options,
@@ -113,6 +126,10 @@ export function AuthProvider({ children }) {
         ...defaultOptions.headers,
         ...options.headers,
       },
+    }
+
+    if (isFormData) {
+      delete mergedOptions.headers['Content-Type'];
     }
 
     try {
@@ -131,15 +148,21 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const value = {
-    user,
-    token,
-    loading,
-    isAuthenticated: !!token && !!user,
-    login,
-    logout,
-    apiCall,
-  }
+  const value = useMemo(() => {
+    // Ekstrak nama peran dari state 'user'
+    const userRole = user?.role || null;
+
+    return {
+      user,
+      token,
+      loading,
+      isAuthenticated: !!token && !!user,
+      userRole, // <-- TAMBAHKAN userRole di sini
+      login,
+      logout,
+      apiCall,
+    };
+  }, [user, token, loading]);
 
   return (
     <AuthContext.Provider value={value}>

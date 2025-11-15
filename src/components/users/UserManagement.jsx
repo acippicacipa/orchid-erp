@@ -22,6 +22,7 @@ const UserManagement = ( ) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false); // Ganti showForm
   const [editingUser, setEditingUser] = useState(null);
+  const [locations, setLocations] = useState([]);
   const { toast } = useToast();
   
   const initialFormData = {
@@ -34,17 +35,18 @@ const UserManagement = ( ) => {
     is_active: true,
     profile: {
       role_id: '',
+      location_id: '',
       department: '',
       position: '',
       employee_id: ''
     }
   };
-
   const [formData, setFormData] = useState(initialFormData);
 
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+    fetchLocations();
   }, []);
 
   const fetchUsers = async () => {
@@ -80,6 +82,21 @@ const UserManagement = ( ) => {
     }
   };
 
+  const fetchLocations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/inventory/locations/`, {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      const data = await response.json();
+      setLocations(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching locations:', err);
+      setLocations([]);
+    }
+  };
+
   useEffect(() => {
     const handler = setTimeout(() => {
       fetchUsers();
@@ -91,7 +108,7 @@ const UserManagement = ( ) => {
     const { name, value, type, checked } = e.target;
     const finalValue = type === 'checkbox' ? checked : value;
 
-    if (['role_id', 'department', 'position', 'employee_id'].includes(name)) {
+    if (['role_id', 'location_id', 'department', 'position', 'employee_id'].includes(name)) {
       setFormData(prev => ({ ...prev, profile: { ...prev.profile, [name]: finalValue } }));
     } else {
       setFormData(prev => ({ ...prev, [name]: finalValue }));
@@ -102,6 +119,10 @@ const UserManagement = ( ) => {
     if (name === 'role_id') {
       setFormData(prev => ({ ...prev, profile: { ...prev.profile, role_id: value } }));
     }
+
+    if (name === 'location_id') {
+    setFormData(prev => ({ ...prev, profile: { ...prev.profile, location_id: value } }));
+  }
   };
 
   const handleCheckboxChange = (name, checked) => {
@@ -128,10 +149,16 @@ const UserManagement = ( ) => {
         delete payload.password;
       }
       
-      if (payload.profile.role_id === '' || payload.profile.role_id === 'null') {
+      if (payload.profile.role_id === '' || payload.profile.role_id === 'none') {
         payload.profile.role_id = null;
       } else {
         payload.profile.role_id = parseInt(payload.profile.role_id);
+      }
+
+      if (payload.profile.location_id === '' || payload.profile.location_id === 'none') {
+        payload.profile.location_id = null;
+      } else {
+        payload.profile.location_id = parseInt(payload.profile.location_id);
       }
 
       const response = await fetch(url, {
@@ -167,6 +194,7 @@ const UserManagement = ( ) => {
       is_active: user.is_active,
       profile: {
         role_id: user.profile?.role?.id?.toString() || '',
+        location_id: user.profile?.location?.toString() || '',
         department: user.profile?.department || '',
         position: user.profile?.position || '',
         employee_id: user.profile?.employee_id || ''
@@ -291,6 +319,18 @@ const UserManagement = ( ) => {
                     <Label htmlFor="position">Position</Label>
                     <Input id="position" name="position" value={formData.profile.position} onChange={handleInputChange} />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location_id">Assigned Location</Label>
+                    <Select name="location_id" value={formData.profile.location_id} onValueChange={(value) => handleSelectChange('location_id', value)}>
+                      <SelectTrigger><SelectValue placeholder="Select a location (optional)" /></SelectTrigger>
+                      <SelectContent>
+                        {/* Opsi untuk tidak memilih lokasi */}
+                        <SelectItem value="none">No Specific Location</SelectItem>
+                        {/* Mapping data lokasi */}
+                        {locations.map(loc => <SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2 pt-2">
                   <Checkbox id="is_active" name="is_active" checked={formData.is_active} onCheckedChange={(checked) => handleCheckboxChange('is_active', checked)} />
@@ -321,6 +361,7 @@ const UserManagement = ( ) => {
               <TableHead>User</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Department</TableHead>
+              <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -339,6 +380,7 @@ const UserManagement = ( ) => {
                     <Badge variant="outline">{user.role_display || 'No Role'}</Badge>
                   </TableCell>
                   <TableCell>{user.profile?.department || '-'}</TableCell>
+                  <TableCell>{user.profile?.location_name || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={user.is_active ? 'default' : 'secondary'}>{user.is_active ? 'Active' : 'Inactive'}</Badge>
                   </TableCell>

@@ -120,11 +120,11 @@ const ProductSearchDropdown = ({ onSelect, initialValue = '', filter = () => tru
             results.map(product => (
               <div
                 key={product.id}
-                className="p-2 hover:bg-accent cursor-pointer"
+                className="px-2 py-1 hover:bg-accent cursor-pointer"
                 onMouseDown={() => handleSelect(product)}
               >
-                <div className="font-medium">{product.sku} - {product.name}</div>
-                <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div>
+                <div className="text-xs">{product.name}</div>
+                {/* <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div> */}
               </div>
             ))
           ) : (
@@ -168,8 +168,7 @@ const StockMovements = () => {
     product: '',
     product_name: '',
     product_sku: '',
-    quantity: '1',
-    unit_cost: '0',
+    quantity: '1'
   };
 
   const [newItem, setNewItem] = useState(initialItemState);
@@ -262,8 +261,7 @@ const StockMovements = () => {
       product: parseInt(newItem.product),
       product_name: newItem.product_name,
       product_sku: newItem.product_sku,
-      quantity: parseFloat(newItem.quantity),
-      unit_cost: parseRupiah(newItem.unit_cost),
+      quantity: parseFloat(newItem.quantity)
     };
 
     setNewMovement(prev => ({
@@ -302,12 +300,11 @@ const StockMovements = () => {
         reference_number: newMovement.reference_number,
         items: newMovement.items.map(item => ({
           product: item.product,
-          quantity: item.quantity,
-          unit_cost: item.unit_cost,
+          quantity: item.quantity
         }))
       };
 
-      const response = await fetch(`${API_BASE_URL}/inventory/stock-movements/bulk_create/`, {
+      const response = await fetch(`${API_BASE_URL}/inventory/stock-movements/create_bulk/`, {
         method: 'POST',
         headers: { 'Authorization': `Token ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -370,12 +367,12 @@ const StockMovements = () => {
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-3xl grid grid-rows-[auto_1fr_auto] h-[90vh] p-0">
-            <DialogHeader className="p-6 pb-4 border-b">
+            <DialogHeader className="px-6 py-4 border-b">
               <DialogTitle>Create Stock Movement</DialogTitle>
             </DialogHeader>
             
             <div className="overflow-y-auto px-6">
-              <form id="movement-form" onSubmit={handleSubmit} className="space-y-6 py-4">
+              <form id="movement-form" onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
     
                   {/* Kolom 1: Movement Type */}
@@ -419,7 +416,7 @@ const StockMovements = () => {
                 </div>
 
                 {/* Add Items Section */}
-                <div className="border rounded-lg p-2 space-y-2">
+                <div className="border rounded-lg px-2 py-1 space-y-2">
                   <h3 className="text-lg font-semibold">Add Products</h3>
                   <div className="grid grid-cols-12 gap-4 items-end">
                     <div className="col-span-6 space-y-2">
@@ -573,8 +570,6 @@ const StockMovements = () => {
               <TableHead>Location</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Quantity</TableHead>
-              <TableHead>Unit Cost</TableHead>
-              <TableHead>Total Value</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -607,8 +602,6 @@ const StockMovements = () => {
                       {movement.quantity >= 0 ? '+' : ''}{movement.quantity}
                     </span>
                   </TableCell>
-                  <TableCell>{formatRupiah(movement.unit_cost)}</TableCell>
-                  <TableCell>{formatRupiah((movement.quantity || 0) * (movement.unit_cost || 0))}</TableCell>
                   <TableCell>{movement.reference_number || '-'}</TableCell>
                   <TableCell>
                     <Badge className={statusInfo.color}>

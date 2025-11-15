@@ -1,40 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Input } from '../ui/input'; // Sesuaikan path jika perlu
-import { useToast } from '../ui/use-toast'; // Sesuaikan path jika perlu
+import { Input } from '../ui/input';
+import { useToast } from '../ui/use-toast';
+import { useAuth } from '../../contexts/AuthContext'; // +++ TAMBAHKAN: Impor useAuth
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-const formatRupiah = (amount ) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-};
+// ... (fungsi formatRupiah tetap sama )
 
-const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "Search products..." }) => {
+const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "Search products...", locationId = null, disabled = false }) => {
+  const { token } = useAuth(); // Panggil hook useAuth
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
 
   const searchProducts = async (query) => {
-    if (query.length < 2) {
+    // --- PERBAIKAN #1: Ubah kondisi query ---
+    // Pencarian hanya butuh query, tidak perlu locationId di sini
+    if (query.length < 3) {
       setResults([]);
       return;
     }
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      // Gunakan endpoint yang benar untuk pencarian produk sales
-      const response = await fetch(`${API_BASE_URL}/sales/products/search/?q=${query}`, {
+      const url = new URL(`${API_BASE_URL}/inventory/product-search/`);
+      url.searchParams.append('search', query);
+      if (locationId) {
+        url.searchParams.append('location_id', locationId);
+      }
+
+      const response = await fetch(url.toString(), {
         headers: { 'Authorization': `Token ${token}` },
       });
+
       if (response.ok) {
         const data = await response.json();
-        // Pastikan produk yang ditampilkan adalah yang bisa dijual (is_sellable)
-        setResults(data.filter(p => p.is_sellable !== false)); 
+        // Hapus filter is_sellable karena endpoint search sudah seharusnya mengembalikan data yang relevan
+        setResults(data.results || []); 
       } else {
         throw new Error('Failed to search products');
       }
@@ -48,28 +50,28 @@ const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      // Hanya cari jika `value` (teks di input) ada isinya
-      if (value) {
+      // --- PERBAIKAN #2: Logika Pemicu yang Lebih Baik ---
+      // Selalu cari jika:
+      // 1. Komponen tidak di-disable.
+      // 2. Ada teks pencarian (value).
+      // 3. DAN (ada locationId ATAU locationId tidak diperlukan sama sekali).
+      // Ini memastikan pencarian berjalan saat teks diketik DAN saat lokasi dipilih.
+      if (!disabled && value) {
         searchProducts(value);
       } else {
-        setResults([]); // Kosongkan hasil jika input kosong
+        setResults([]);
       }
     }, 300);
     return () => clearTimeout(handler);
-  }, [value]);
+  }, [value, locationId, disabled]); // Dependensi sudah benar
   
   const handleSelect = (product) => {
     onSelect(product);
     setShowDropdown(false);
   };
 
-  const handleInputChange = (e) => {
-    setSearchTerm(e.target.value);
-    // Jika pengguna mulai mengetik, kita harus mengosongkan pilihan produk di parent
-    if (value) {
-      onSelect(null);
-    }
-  };
+  // Hapus fungsi handleInputChange yang tidak terpakai
+  // const handleInputChange = (e) => { ... };
 
   return (
     <div className="relative">
@@ -77,10 +79,11 @@ const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "
         placeholder={placeholder}
         value={value || ''}
         onChange={(e) => onValueChange(e.target.value)}
-        onFocus={() => setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 200)} // Delay untuk memungkinkan klik pada dropdown
+        onFocus={() => !disabled && setShowDropdown(true)} // Tambahkan pengecekan !disabled
+        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+        disabled={disabled}
       />
-      {showDropdown && (
+      {showDropdown && !disabled && (
         <div className="absolute top-full left-0 z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
           {isLoading ? (
             <div className="p-2 text-center text-sm text-gray-500">Searching...</div>
@@ -89,12 +92,12 @@ const ProductSearchDropdown = ({ value, onValueChange, onSelect, placeholder = "
               <div
                 key={product.id}
                 className="p-2 hover:bg-gray-100 cursor-pointer"
-                onMouseDown={() => handleSelect(product)} // Gunakan onMouseDown agar onBlur tidak ter-trigger duluan
+                onMouseDown={() => handleSelect(product)}
               >
-                <div className="font-medium text-sm">{product.name} {product.color} {} 
-                  <label className="text-sm text-gray-500">
-                    (Stock: {product.stock_quantity || 0} | {formatRupiah(product.selling_price)})
-                  </label>
+                <div className="font-medium text-sm">{product.name} {product.color}</div>
+                <div className="text-sm text-gray-500">
+                  {/* --- PERBAIKAN #3: Ganti nama field agar cocok dengan backend --- */}
+                  (Stock: {product.current_stock || 0})
                 </div>
               </div>
             ))

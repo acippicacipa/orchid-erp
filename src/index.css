@@ -57,10 +57,11 @@ div[data-radix-popper-content-wrapper] > div[role="listbox"] {
   Memberikan warna highlight saat mouse hover di atas item.
 */
 [data-radix-dropdown-menu-content]: # "[role=\"menuitem\"][data-highlighted],"
-[data-radix-select-content]: # "[role=\"option\"][data-highlighted] {"
+[data-radix-select-content]: # "[role=\"option\"][data-highlighted]" {
   /* 
     Gaya default menggunakan `hsl(var(--accent))`. Kita timpa dengan warna solid.
     #f1f5f9 adalah warna abu-abu muda (mirip dengan `slate-100` di Tailwind).
   */
   background-color: #f1f5f9 !important; 
 }
+

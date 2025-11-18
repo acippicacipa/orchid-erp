@@ -118,3 +118,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+[data-radix-dialog-overlay][data-state='open'] {
+  /* 
+    Gunakan format warna RGBA yang sudah sangat lama didukung.
+    Ini adalah fallback untuk format HSL modern seperti 'hsl(var(--background) / 0.8)'.
+    rgba(0, 0, 0, 0.8) adalah warna hitam dengan 80% opasitas.
+  */
+  background-color: rgba(0, 0, 0, 0.8) !important;
+
+  /* 
+    Nonaktifkan backdrop-filter jika ada, karena tidak didukung.
+    Ini memastikan tidak ada efek blur yang mungkin mengganggu rendering.
+  */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

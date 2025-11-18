@@ -1,31 +1,34 @@
 /* =================================================================== */
 /*  CSS Fallback Fix for Older Browsers (e.g., Windows 7 Chrome/FF)  */
+/*  VERSION 3 - AGGRESSIVE OVERRIDE                                  */
 /* =================================================================== */
 
 /* 
   1. FIX UNTUK BACKDROP/OVERLAY DIALOG
-  Memberikan warna latar belakang semi-transparan yang solid.
+  Selector ini menargetkan elemen yang kemungkinan besar adalah overlay.
 */
-[data-radix-dialog-overlay][data-state='open'],
-[data-radix-alert-dialog-overlay][data-state='open'] {
-  /* Gunakan format RGBA yang sangat kompatibel */
+body:has([role="dialog"][data-state="open"]) > div[data-radix-popper-content-wrapper] + div {
   background-color: rgba(0, 0, 0, 0.8) !important;
-
-  /* Nonaktifkan filter yang tidak didukung */
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
 
 /* 
-  2. FIX UNTUK KONTEN DIALOG (INI YANG PALING PENTING SEKARANG)
-  Memberikan warna latar belakang putih solid pada kotak dialog itu sendiri.
+  2. FIX UNTUK KONTEN DIALOG
+  Selector ini secara spesifik menargetkan elemen dialog yang sedang terbuka.
 */
-[data-radix-dialog-content][data-state='open'],
-[data-radix-alert-dialog-content][data-state='open'] {
+div[role="dialog"][data-state="open"] {
   /* 
-    Gaya default shadcn menggunakan variabel CSS seperti `hsl(var(--background))`.
-    Browser lama mungkin gagal memproses ini. Kita timpa dengan warna solid.
-    #ffffff adalah warna putih. Anda bisa menggantinya dengan #f8f8f8 untuk abu-abu muda.
+    Langsung timpa kelas 'bg-background' dengan warna solid.
+    #ffffff adalah putih.
   */
   background-color: #ffffff !important;
+}
+
+/* 
+  3. FALLBACK TAMBAHAN (JIKA SEBELUMNYA GAGAL)
+  Ini adalah selector yang lebih umum jika struktur Radix berubah.
+*/
+.bg-background[role="dialog"] {
+    background-color: #ffffff !important;
 }

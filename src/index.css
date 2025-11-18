@@ -1,0 +1,31 @@
+/* =================================================================== */
+/*  CSS Fallback Fix for Older Browsers (e.g., Windows 7 Chrome/FF)  */
+/* =================================================================== */
+
+/* 
+  1. FIX UNTUK BACKDROP/OVERLAY DIALOG
+  Memberikan warna latar belakang semi-transparan yang solid.
+*/
+[data-radix-dialog-overlay][data-state='open'],
+[data-radix-alert-dialog-overlay][data-state='open'] {
+  /* Gunakan format RGBA yang sangat kompatibel */
+  background-color: rgba(0, 0, 0, 0.8) !important;
+
+  /* Nonaktifkan filter yang tidak didukung */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 
+  2. FIX UNTUK KONTEN DIALOG (INI YANG PALING PENTING SEKARANG)
+  Memberikan warna latar belakang putih solid pada kotak dialog itu sendiri.
+*/
+[data-radix-dialog-content][data-state='open'],
+[data-radix-alert-dialog-content][data-state='open'] {
+  /* 
+    Gaya default shadcn menggunakan variabel CSS seperti `hsl(var(--background))`.
+    Browser lama mungkin gagal memproses ini. Kita timpa dengan warna solid.
+    #ffffff adalah warna putih. Anda bisa menggantinya dengan #f8f8f8 untuk abu-abu muda.
+  */
+  background-color: #ffffff !important;
+}

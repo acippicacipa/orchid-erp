@@ -32,3 +32,35 @@ div[role="dialog"][data-state="open"] {
 .bg-background[role="dialog"] {
     background-color: #ffffff !important;
 }
+
+/* 
+  3. FIX UNTUK DROPDOWN MENU & SELECT CONTENT
+  Memberikan warna latar belakang putih solid pada menu dropdown.
+*/
+[data-radix-dropdown-menu-content][data-state="open"],
+[data-radix-select-content][data-state="open"] {
+  background-color: #ffffff !important;
+}
+
+/* 
+  4. FIX UNTUK POPOVER UMUM (TERMASUK PRODUCT SEARCH DROPDOWN)
+  Ini adalah selector yang lebih umum untuk menangkap elemen popover lain
+  yang mungkin dibuat oleh Radix UI atau library sejenis.
+*/
+div[data-radix-popper-content-wrapper] > div[role="menu"],
+div[data-radix-popper-content-wrapper] > div[role="listbox"] {
+  background-color: #ffffff !important;
+}
+
+/*
+  5. FIX UNTUK HOVER ITEM DI DALAM DROPDOWN/SELECT
+  Memberikan warna highlight saat mouse hover di atas item.
+*/
+[data-radix-dropdown-menu-content]: # "[role=\"menuitem\"][data-highlighted],"
+[data-radix-select-content]: # "[role=\"option\"][data-highlighted] {"
+  /* 
+    Gaya default menggunakan `hsl(var(--accent))`. Kita timpa dengan warna solid.
+    #f1f5f9 adalah warna abu-abu muda (mirip dengan `slate-100` di Tailwind).
+  */
+  background-color: #f1f5f9 !important; 
+}

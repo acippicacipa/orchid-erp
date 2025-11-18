@@ -1,414 +1,125 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from '@/components/ui/toaster'
-import LoginPage from './components/auth/LoginPage'
-import Dashboard from './components/dashboard/Dashboard'
-import DataImport from './components/data-import/DataImport'
-import Layout from './components/layout/Layout'
-import CategoryManagement from './components/inventory/CategoryManagement'
-import ProductManagement from './components/inventory/ProductManagement'
-import LocationManagement from './components/inventory/LocationManagement'
-import StockManagement from './components/inventory/StockManagement'
-import StockMovements from './components/inventory/StockMovements'
-import GoodsReceiptManagement from './components/inventory/GoodsReceiptManagement'
-import BillOfMaterials from './components/manufacturing/BillOfMaterials'
-import AssemblyOrders from './components/manufacturing/AssemblyOrders'
-import SupplierManagement from './components/purchasing/SupplierManagement'
-import PurchaseOrderManagement from './components/purchasing/PurchaseOrderManagement'
-import BillManagement from './components/purchasing/BillManagement'
-import PurchasingDashboard from './components/purchasing/PurchasingDashboard'
-import CustomerManagement from './components/sales/CustomerManagement'
-import SalesOrderManagement from './components/sales/SalesOrderManagement'
-import CreateSalesOrder from './components/sales/CreateSalesOrder'
-import InvoiceManagement from './components/sales/InvoiceManagement'
-import SalesDashboard from './components/sales/SalesDashboard'
-import AccountingDashboard from './components/accounting/AccountingDashboard'
-import ChartOfAccounts from './components/accounting/ChartOfAccounts'
-import JournalEntries from './components/accounting/JournalEntries'
-import FinancialReports from './components/accounting/FinancialReports'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
-import './App.css'
-import BusinessIntelligenceDashboard from './components/analytics/BusinessIntelligenceDashboard'
-import IndonesianReports from './components/analytics/IndonesianReports'
-import KPIManagement from './components/analytics/KPIManagement'
-import ReportBuilder from './components/analytics/ReportBuilder'
-import ReportTemplates from './components/analytics/ReportTemplates'
-import UserManagement from './components/users/UserManagement'
-import SalesOrderApproval from './components/sales/SalesOrderApproval'
-import OrderFulfillment from './components/inventory/OrderFulfillment'
-import DeliveryOrderPage from './components/inventory/DeliveryOrderPage'
+import {
+  Upload,
+  Package,
+  ShoppingCart,
+  FileText,
+  Factory,
+} from 'lucide-react';
 
-// Protected Route Component
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+const ROLES = {
+  ADMIN: 'ADMIN',
+  WAREHOUSE: 'WAREHOUSE',
+  SALES: 'SALES',
+  PURCHASING: 'PURCHASING',
+  ACCOUNTING: 'ACCOUNTING',
+  PRODUCTION: 'PRODUCTION',
+  AUDIT: 'AUDIT',
+};
+
+// Helper untuk peran umum
+const ALL_ROLES = Object.values(ROLES);
+const ADMIN_ONLY = [ROLES.ADMIN];
+const ADMIN_AND_PURCHASING = [ROLES.ADMIN, ROLES.PURCHASING];
+const ADMIN_AND_SALES = [ROLES.ADMIN, ROLES.SALES];
+const ADMIN_AND_WAREHOUSE = [ROLES.ADMIN, ROLES.WAREHOUSE];
+const ADMIN_AND_PRODUCTION = [ROLES.ADMIN, ROLES.PRODUCTION]
+const ADMIN_WAREHOUSE_SALES = [ROLES.ADMIN, ROLES.WAREHOUSE, ROLES.SALES]
+const ADMIN_AND_ACCOUNTING = [ROLES.ADMIN, ROLES.ACCOUNTING]
+
+// Definisikan dan ekspor array navigasi dari sini
+export const navigation = [
+  { 
+    name: 'Inventory',
+    href: '#',
+    icon: Package,
+    roles: ALL_ROLES,
+    subItems: [
+      { name: 'Stock', href: '/inventory/stock', roles: ALL_ROLES },
+      { name: 'Stock Movements', href: '/inventory/stock-movements', roles: ADMIN_WAREHOUSE_SALES },
+      { name: 'Stock Transfer', href: '/inventory/transfer', roles: ADMIN_WAREHOUSE_SALES },
+      { name: 'Good Receipts', href: '/inventory/good-receipt', roles: ADMIN_AND_WAREHOUSE },
+      { name: 'Picking List', href: '/inventory/fulfillment', roles: ADMIN_AND_WAREHOUSE },
+      { name: 'Delivery Orders', href: '/inventory/delivery-orders', roles: ADMIN_AND_WAREHOUSE },
+    ]
+  },
+  {
+    name: 'Sales',
+    href: '#',
+    icon: ShoppingCart,
+    roles: ADMIN_AND_SALES,
+    subItems: [
+      { name: 'Sales Orders', href: '/sales/orders', roles: ADMIN_AND_SALES },
+      { name: 'Create Sales Order', href: '/sales/orders/create', roles: ADMIN_AND_SALES },
+      { name: 'Order Approvals', href: '/sales/approvals', roles: ADMIN_ONLY },
+      { name: 'Invoices', href: '/sales/invoices', roles: ADMIN_AND_SALES },
+    ]
+  },
+  {
+    name: 'Manufacturing',
+    href: '#',
+    icon: Factory,
+    roles: ADMIN_AND_PRODUCTION,
+    subItems: [
+      { name: 'Assembly Orders', href: '/manufacturing/assembly-orders', roles: ADMIN_AND_PRODUCTION },
+      { name: 'Bill of Materials', href: '/manufacturing/boms', roles: ADMIN_AND_PRODUCTION },
+    ]
+  },
+  {
+    name: 'Purchasing',
+    href: '#',
+    icon: Package,
+    roles: [ROLES.ADMIN, ROLES.PURCHASING, ROLES.ACCOUNTING],
+    subItems: [
+      { name: 'Purchase Orders', href: '/purchasing/purchase-orders', roles: ADMIN_AND_PURCHASING },
+      { name: 'Bills', href: '/purchasing/bills', roles: ADMIN_AND_ACCOUNTING },
+    ]
+  },
+  {
+    name: 'Accounting',
+    href: '#',
+    icon: FileText,
+    roles: ADMIN_AND_ACCOUNTING,
+    subItems: [
+      { name: 'Chart of Accounts', href: '/accounting/accounts', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Journal Entries', href: '/accounting/journal-entries', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Financial Reports', href: '/accounting/reports', roles: ADMIN_AND_ACCOUNTING },
+    ]
+  },
+  { 
+    name: 'Analytics & Reports',
+    href: '#',
+    icon: FileText,
+    roles: ADMIN_AND_ACCOUNTING,
+    subItems: [
+      { name: 'Business Intelligence', href: '/analytics/dashboard', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Indonesian Reports', href: '/analytics/report', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'KPI Management', href: '/analytics/kpi', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Report Builder', href: '/analytics/builder', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Report Templates', href: '/analytics/template', roles: ADMIN_AND_ACCOUNTING },
+    ]
+  },
+  { 
+    name: 'Master',
+    href: '#',
+    icon: FileText,
+    roles: [ROLES.ADMIN, ROLES.PURCHASING, ROLES.SALES],
+    subItems: [
+      { name: 'Products', href: '/inventory/products', roles: ADMIN_ONLY},
+      { name: 'Categories', href: '/inventory/categories', roles: ADMIN_ONLY },
+      { name: 'Locations', href: '/inventory/locations', roles: ADMIN_ONLY },
+      { name: 'Suppliers', href: '/purchasing/suppliers', roles: ADMIN_AND_PURCHASING },
+      { name: 'Customers', href: '/sales/customers', roles: ADMIN_AND_SALES },
+      { name: 'Users', href: '/users/management', roles: ADMIN_ONLY }
+    ]
+  },
+
+  { name: 'Data Import', href: '/data-import', icon:Upload, roles: [ROLES.ADMIN] },
+//   { 
+//     name: 'Users',
+//     href: '#',
+//     subItems: [
+//       { name: 'User Management', href: '/users/management' },
+//     ]
+//   },
   
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-  
-  return isAuthenticated ? children : <Navigate to="/login" />
-}
-
-// Public Route Component (redirect to dashboard if authenticated)
-function PublicRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-  
-  return !isAuthenticated ? children : <Navigate to="/dashboard" />
-}
-
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        } 
-      />
-      <Route 
-        path="/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/data-import" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <DataImport />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/categories" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CategoryManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/products" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ProductManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/locations" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <LocationManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/stock" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <StockManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/stock-movements" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <StockMovements />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/inventory/good-receipt" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <GoodsReceiptManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-            path="/inventory/fulfillment" 
-            element={<ProtectedRoute><Layout><OrderFulfillment /></Layout></ProtectedRoute>} 
-          />
-      <Route 
-        path="/inventory/delivery-orders" 
-        element={<ProtectedRoute><Layout><DeliveryOrderPage /></Layout></ProtectedRoute>} 
-      />
-      <Route 
-        path="/manufacturing/boms" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <BillOfMaterials />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/manufacturing/assembly-orders" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <AssemblyOrders />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/purchasing/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <PurchasingDashboard />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/purchasing/suppliers" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <SupplierManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/purchasing/purchase-orders" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <PurchaseOrderManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/purchasing/bills" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <BillManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/create" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CreateSalesOrder />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <SalesDashboard />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/customers" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CustomerManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/orders" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <SalesOrderManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/orders/create" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CreateSalesOrder />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sales/approvals" 
-        element={<ProtectedRoute><Layout><SalesOrderApproval /></Layout></ProtectedRoute>} 
-      />
-      <Route 
-        path="/sales/invoices" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <InvoiceManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/accounting/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <AccountingDashboard />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/accounting/accounts" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ChartOfAccounts />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/accounting/journal-entries" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JournalEntries />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/accounting/reports" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <FinancialReports />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/analytics/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <BusinessIntelligenceDashboard />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/analytics/report" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <IndonesianReports />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/analytics/kpi" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <KPIManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/analytics/builder" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ReportBuilder />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/analytics/template" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ReportTemplates />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/users/management" 
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <UserManagement />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
-    </Routes>
-  )
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-background">
-          <AppRoutes />
-          <Toaster />
-        </div>
-      </Router>
-    </AuthProvider>
-  )
-}
-
-export default App
-
+];

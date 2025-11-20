@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 // import { useAuth } from '@/contexts/AuthContext'; // Auth context is good practice but not directly used in the logic here
 import { Plus, Eye, Loader2, Trash2, X, CheckCircle, Search } from 'lucide-react';
 import ProductSearchDropdown from './ProductSearchDropdown';
+import SupplierSearchDropdown from './SupplierSearchDropdown';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -58,10 +59,11 @@ const GoodsReceiptManagement = ( ) => {
   const [receiptMode, setReceiptMode] = useState('from-po');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
 
   const initialFormState = {
     purchase_order: null,
-    supplier: '', // <-- Tambahkan state untuk supplier
+    supplier: null,
     location: '',
     notes: '',
     items: [],
@@ -69,6 +71,26 @@ const GoodsReceiptManagement = ( ) => {
   const [formData, setFormData] = useState(initialFormState);
 
   const [manualProductSearch, setManualProductSearch] = useState('');
+
+  const fetchPurchaseOrdersBySupplier = useCallback(async (supplierId) => {
+    if (!supplierId) {
+      setPurchaseOrders([]);
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      // Ambil PO yang CONFIRMED dari supplier tertentu
+      const response = await fetch(`${API_BASE_URL}/purchasing/purchase-orders/?supplier=${supplierId}&status=CONFIRMED`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPurchaseOrders(data.results || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch POs for supplier", error);
+    }
+  }, []);
 
   const fetchGoodsReceipts = useCallback(async (searchQuery = '') => {
     setLoading(true);
@@ -94,6 +116,21 @@ const GoodsReceiptManagement = ( ) => {
     }
   }, [toast]);
 
+  const fetchLocations = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/inventory/locations/`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLocations(data.results || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch locations", error);
+    }
+  }, []);
+
   useEffect(() => {
     // Debouncing untuk search
     const handler = setTimeout(() => {
@@ -108,6 +145,12 @@ const GoodsReceiptManagement = ( ) => {
 
     return () => clearTimeout(handler);
   }, [searchTerm]); // Hanya bergantung pada searchTerm
+
+  useEffect(() => {
+    fetchGoodsReceipts();
+    fetchLocations(); // <-- PANGGIL DI SINI
+    // Anda juga bisa memanggil fetchAssemblyOrders di sini jika perlu
+  }, [fetchGoodsReceipts, fetchLocations]);
 
   const handleConfirmReceipt = async () => {
     if (!selectedReceipt) return;
@@ -158,28 +201,58 @@ const GoodsReceiptManagement = ( ) => {
     resetForm(); // Reset form setiap kali berganti mode
   };
 
-  const handlePOSelection = (poId) => {
-    const po = purchaseOrders.find(p => p.id === parseInt(poId));
-    if (po) {
-      const itemsFromPO = po.items.map(item => ({
+  const handlePOSelection = async (poId) => {
+    if (!poId) {
+      // Jika pengguna memilih placeholder, reset form
+      setFormData(prev => ({ ...prev, purchase_order: null, items: [] }));
+      return;
+    }
+
+    setLoading(true); // Tampilkan loading saat mengambil detail PO
+    try {
+      const token = localStorage.getItem('token');
+      // Panggil API untuk mendapatkan detail LENGKAP dari satu PO
+      const response = await fetch(`${API_BASE_URL}/purchasing/purchase-orders/${poId}/`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch Purchase Order details.');
+      }
+
+      const poDetails = await response.json();
+
+      // Sekarang 'poDetails' berisi semua informasi, termasuk array 'items'
+      const itemsFromPO = poDetails.items.map(item => ({
         // Gunakan ID unik sementara untuk key di React
         temp_id: `po_item_${item.id}`,
-        purchase_order_item: item.id,
-        product: item.product,
-        product_name: item.product_name,
-        product_sku: item.product_sku,
+        purchase_order_item: item.id, // ID item PO asli untuk dikirim ke backend
+        product: item.product.id, // Ambil ID produk dari objek nested
+        product_name: item.product.name,
+        product_sku: item.product.sku,
         quantity_ordered: item.quantity,
-        quantity_remaining: item.quantity_remaining,
-        quantity_received: 0,
+        // 'quantity_remaining' harus dihitung atau didapat dari backend.
+        // Untuk sekarang, kita asumsikan sama dengan quantity_ordered.
+        quantity_remaining: item.quantity_remaining || item.quantity, 
+        quantity_received: 0, // Default kuantitas diterima adalah 0
         unit_price: item.unit_price,
       }));
+
+      // Update state formData dengan semua data yang relevan dari PO
       setFormData(prev => ({
         ...prev,
-        purchase_order: po.id,
-        supplier: po.supplier, // <-- Otomatis isi supplier dari PO
-        notes: `Receipt for PO #${po.order_number}`,
+        purchase_order: poDetails.id,
+        // Supplier sudah dipilih sebelumnya, tidak perlu diubah
+        notes: `Receipt for PO #${poDetails.order_number}`,
         items: itemsFromPO,
       }));
+
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      // Jika gagal, pastikan items kembali kosong
+      setFormData(prev => ({ ...prev, purchase_order: poId, items: [] }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -356,23 +429,73 @@ const GoodsReceiptManagement = ( ) => {
                   {/* Konten untuk setiap tab */}
                   <TabsContent value="from-po" className="mt-0 space-y-8">
                     <div className="space-y-2">
-                      <Label>Select Purchase Order</Label>
-                      <Select onValueChange={handlePOSelection}>
-                        <SelectTrigger><SelectValue placeholder="Select a PO..." /></SelectTrigger>
-                        <SelectContent>{purchaseOrders.map(po => <SelectItem key={po.id} value={po.id.toString()}>{po.order_number} - {po.supplier_name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <Label>Search Supplier</Label>
+                      <SupplierSearchDropdown
+                        value={supplierSearchTerm}
+                        onValueChange={setSupplierSearchTerm}
+                        onSelect={(supplier) => {
+                          setFormData(prev => ({ ...prev, supplier: supplier.id, purchase_order: null, items: [] }));
+                          setSupplierSearchTerm(supplier.name); // Tampilkan nama di input
+                          fetchPurchaseOrdersBySupplier(supplier.id); // Ambil PO untuk supplier ini
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Select Purchase Order</Label>
+                        <Select 
+                          onValueChange={handlePOSelection} 
+                          disabled={!formData.supplier || purchaseOrders.length === 0} // Disable jika tidak ada supplier atau PO
+                          value={formData.purchase_order ? String(formData.purchase_order) : ""}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={!formData.supplier ? "Select a supplier first" : "Select a PO..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {purchaseOrders.map(po => <SelectItem key={po.id} value={po.id.toString()}>{po.order_number}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Receive To Location</Label>
+                          <Select value={formData.location} onValueChange={v => setFormData(p => ({...p, location: v}))}>
+                              <SelectTrigger><SelectValue placeholder="Select location..." /></SelectTrigger>
+                              <SelectContent>
+                              {locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>))}                            
+                              </SelectContent>
+                          </Select>
+                      </div>
                     </div>
                     {/* Tabel Item untuk PO */}
                     {formData.items.length > 0 && (
                       <div className="border rounded-lg overflow-hidden">
                         <Table>
-                          <TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right">Remaining</TableHead><TableHead>Receive Qty</TableHead></TableRow></TableHeader>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Product</TableHead>
+                              <TableHead className="text-right">Remaining</TableHead>
+                              <TableHead>Receive Qty</TableHead>
+                            </TableRow>
+                          </TableHeader>
                           <TableBody>
+                            {/* Kode ini sudah benar, ia akan me-render item dari state formData */}
                             {formData.items.map((item, index) => (
                               <TableRow key={item.temp_id}>
-                                <TableCell><div className="font-medium">{item.product_name}</div><div className="text-sm text-muted-foreground">{item.product_sku}</div></TableCell>
+                                <TableCell>
+                                  <div className="font-medium">{item.product_name}</div>
+                                  <div className="text-sm text-muted-foreground">{item.product_sku}</div>
+                                </TableCell>
                                 <TableCell className="text-right">{item.quantity_remaining}</TableCell>
-                                <TableCell><Input type="text" value={item.quantity_received} onChange={e => updateItem(index, 'quantity_received', e.target.value)} className="w-28" min="0" /></TableCell>
+                                <TableCell>
+                                  <Input 
+                                    type="number" // Sebaiknya gunakan type="number"
+                                    value={item.quantity_received} 
+                                    onChange={e => updateItem(index, 'quantity_received', e.target.value)} 
+                                    className="w-28" 
+                                    min="0" 
+                                    max={item.quantity_remaining} // Tambahkan validasi max
+                                  />
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -454,16 +577,8 @@ const GoodsReceiptManagement = ( ) => {
                     )}
                   </TabsContent>
                   {/* Form Header - Lokasi dipindahkan ke sini agar global */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label>Receive To Location</Label>
-                          <Select value={formData.location} onValueChange={v => setFormData(p => ({...p, location: v}))}>
-                              <SelectTrigger><SelectValue placeholder="Select location..." /></SelectTrigger>
-                              <SelectContent>
-                              {locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>))}                            
-                              </SelectContent>
-                          </Select>
-                      </div>
+                  <div className="space-y-2">
+                      
                       <div className="space-y-2">
                           <Label>Notes</Label>
                           <Textarea value={formData.notes} onChange={e => setFormData(p => ({...p, notes: e.target.value}))} />

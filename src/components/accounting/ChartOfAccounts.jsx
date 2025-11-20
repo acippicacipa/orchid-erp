@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Trash2, Edit, Plus, Search, Eye } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 const ChartOfAccounts = () => {
   const { token } = useAuth();
   const [accounts, setAccounts] = useState([]);
@@ -43,7 +45,7 @@ const ChartOfAccounts = () => {
 
   const fetchAccountTypes = async () => {
     try {
-      const response = await fetch('/api/accounting/account-types/', {
+      const response = await fetch(`${API_BASE_URL}/accounting/account-types/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -51,7 +53,7 @@ const ChartOfAccounts = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setAccountTypes(data);
+        setAccountTypes(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching account types:', error);
@@ -61,7 +63,7 @@ const ChartOfAccounts = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      let url = '/api/accounting/accounts/';
+      let url = `${API_BASE_URL}/accounting/accounts/`;
       const params = new URLSearchParams();
       
       if (searchTerm) params.append('search', searchTerm);
@@ -80,7 +82,7 @@ const ChartOfAccounts = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setAccounts(Array.isArray(data) ? data : data.results || []);
+        setAccounts(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -101,8 +103,8 @@ const ChartOfAccounts = () => {
     e.preventDefault();
     try {
       const url = editingAccount 
-        ? `/api/accounting/accounts/${editingAccount.id}/`
-        : '/api/accounting/accounts/';
+        ? `${API_BASE_URL}/accounting/accounts/${editingAccount.id}/`
+        : `${API_BASE_URL}/api/accounting/accounts/`;
       
       const method = editingAccount ? 'PUT' : 'POST';
       
@@ -148,7 +150,7 @@ const ChartOfAccounts = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this account?')) {
       try {
-        const response = await fetch(`/api/accounting/accounts/${id}/`, {
+        const response = await fetch(`${API_BASE_URL}/accounting/accounts/${id}/`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Token ${token}`,

@@ -748,9 +748,9 @@ const PurchaseOrderManagement = () => {
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="DRAFT">Draft</SelectItem>
-                            <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                            {/* <SelectItem value="CONFIRMED">Confirmed</SelectItem>
                             <SelectItem value="RECEIVED">Received</SelectItem>
-                            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                            <SelectItem value="CANCELLED">Cancelled</SelectItem> */}
                           </SelectContent>
                         </Select>
                       </div>

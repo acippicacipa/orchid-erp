@@ -169,16 +169,16 @@ const SupplierManagement = () => {
     });
   };
 
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingSupplier(null);
-    resetForm();
-  };
+  // const handleCancel = () => {
+  //   setShowForm(false);
+  //   setEditingSupplier(null);
+  //   resetForm();
+  // };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchSuppliers();
-  };
+  // const handleSearch = (e) => {
+  //   e.preventDefault();
+  //   fetchSuppliers();
+  // };
 
   // if (loading) {
   //   return (

@@ -456,7 +456,7 @@ const BillManagement = () => {
                     <TableCell className="text-right font-semibold">{formatRupiah(bill.balance_due)}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center space-x-1">
-                        <Button variant="outline" size="sm" onClick={() => handleEditClick(bill)}><Edit className="h-4 w-4" /></Button>
+                        { /* <Button variant="outline" size="sm" onClick={() => handleEditClick(bill)}><Edit className="h-4 w-4" /></Button> */}
                         {bill.status !== 'PAID' && <Button variant="outline" size="sm" onClick={() => handlePaymentClick(bill)}><DollarSign className="h-4 w-4" /></Button>}
                       </div>
                     </TableCell>

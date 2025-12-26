@@ -40,6 +40,7 @@ export const navigation = [
       { name: 'Good Receipts', href: '/inventory/good-receipt', roles: ADMIN_AND_WAREHOUSE },
       { name: 'Picking List', href: '/inventory/fulfillment', roles: ADMIN_AND_WAREHOUSE },
       { name: 'Delivery Orders', href: '/inventory/delivery-orders', roles: ADMIN_AND_WAREHOUSE },
+      { name: 'Product Bundling', href: '/inventory/bundling', roles: ADMIN_WAREHOUSE_SALES },
     ]
   },
   {
@@ -50,8 +51,11 @@ export const navigation = [
     subItems: [
       { name: 'Sales Orders', href: '/sales/orders', roles: ADMIN_AND_SALES },
       { name: 'Create Sales Order', href: '/sales/orders/create', roles: ADMIN_AND_SALES },
+      { name: 'Sales Returns', href: '/sales/returns', roles: ADMIN_AND_SALES },
       { name: 'Order Approvals', href: '/sales/approvals', roles: ADMIN_ONLY },
       { name: 'Invoices', href: '/sales/invoices', roles: ADMIN_AND_SALES },
+      { name: 'Consignment Shipments', href: '/sales/consignment-shipments', roles: ADMIN_AND_SALES },
+      { name: 'Consignment Sales Reports', href: '/sales/consignment-reports', roles: ADMIN_AND_SALES },
     ]
   },
   {
@@ -71,7 +75,9 @@ export const navigation = [
     roles: [ROLES.ADMIN, ROLES.PURCHASING, ROLES.ACCOUNTING],
     subItems: [
       { name: 'Purchase Orders', href: '/purchasing/purchase-orders', roles: ADMIN_AND_PURCHASING },
+      { name: 'Purchase Returns', href: '/purchasing/returns', roles: ADMIN_AND_PURCHASING },
       { name: 'Bills', href: '/purchasing/bills', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Consignment', href: '/purchasing/consignment', roles: ADMIN_AND_PURCHASING },
     ]
   },
   {
@@ -82,6 +88,7 @@ export const navigation = [
     subItems: [
       { name: 'Chart of Accounts', href: '/accounting/accounts', roles: ADMIN_AND_ACCOUNTING },
       { name: 'Journal Entries', href: '/accounting/journal-entries', roles: ADMIN_AND_ACCOUNTING },
+      { name: 'Asset Management', href: '/accounting/assets', roles: ADMIN_AND_ACCOUNTING },
       { name: 'Financial Reports', href: '/accounting/reports', roles: ADMIN_AND_ACCOUNTING },
     ]
   },

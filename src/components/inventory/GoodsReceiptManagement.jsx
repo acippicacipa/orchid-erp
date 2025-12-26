@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../hooks/use-toast-provider';
 import { Badge } from '@/components/ui/badge';
 // import { useAuth } from '@/contexts/AuthContext'; // Auth context is good practice but not directly used in the logic here
 import { Plus, Eye, Loader2, Trash2, X, CheckCircle, Search } from 'lucide-react';

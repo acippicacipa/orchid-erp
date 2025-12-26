@@ -9,7 +9,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Search, Plus, Edit, Trash2, DollarSign, FileText } from 'lucide-react';
-import { useToast } from '../ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';

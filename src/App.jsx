@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from '@/components/ui/toaster'
+import { ToastProvider } from './hooks/use-toast-provider';
+import { Toaster } from './components/ui/toaster'
 import LoginPage from './components/auth/LoginPage'
 import Dashboard from './components/dashboard/Dashboard'
 import DataImport from './components/data-import/DataImport'
@@ -17,6 +18,7 @@ import SupplierManagement from './components/purchasing/SupplierManagement'
 import PurchaseOrderManagement from './components/purchasing/PurchaseOrderManagement'
 import BillManagement from './components/purchasing/BillManagement'
 import PurchasingDashboard from './components/purchasing/PurchasingDashboard'
+import ConsignmentManagement from './components/purchasing/ConsignmentManagement'
 import CustomerManagement from './components/sales/CustomerManagement'
 import SalesOrderManagement from './components/sales/SalesOrderManagement'
 import CreateSalesOrder from './components/sales/CreateSalesOrder'
@@ -38,6 +40,12 @@ import SalesOrderApproval from './components/sales/SalesOrderApproval'
 import OrderFulfillment from './components/inventory/OrderFulfillment'
 import DeliveryOrderPage from './components/inventory/DeliveryOrderPage'
 import StockTransfer from './components/inventory/StockTransfer'
+import AssetManagement from './components/accounting/AssetManagement'
+import SalesReturnManagement from './components/sales/SalesReturnManagement'
+import PurchaseReturnManagement from './components/purchasing/PurchaseReturnManagement'
+import ConsignmentShipment from './components/sales/ConsignmentShipment'
+import ConsignmentSalesReport from './components/sales/ConsignmentSalesReport'
+import ProductBundling from './components/inventory/ProductBundling';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -179,6 +187,10 @@ function AppRoutes() {
         element={<ProtectedRoute><Layout><DeliveryOrderPage /></Layout></ProtectedRoute>} 
       />
       <Route 
+        path="/inventory/bundling" 
+        element={<ProtectedRoute><Layout><ProductBundling /></Layout></ProtectedRoute>} 
+      />
+      <Route 
         path="/manufacturing/boms" 
         element={
           <ProtectedRoute>
@@ -229,11 +241,31 @@ function AppRoutes() {
         } 
       />
       <Route 
+        path="/purchasing/returns" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PurchaseReturnManagement />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/purchasing/bills" 
         element={
           <ProtectedRoute>
             <Layout>
               <BillManagement />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/purchasing/consignment" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ConsignmentManagement />
             </Layout>
           </ProtectedRoute>
         } 
@@ -288,6 +320,14 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route path="/sales/returns" element={<ProtectedRoute>
+            <Layout>
+              <SalesReturnManagement />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+
       <Route 
         path="/sales/approvals" 
         element={<ProtectedRoute><Layout><SalesOrderApproval /></Layout></ProtectedRoute>} 
@@ -298,6 +338,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <InvoiceManagement />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/sales/consignment-shipments" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ConsignmentShipment />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/sales/consignment-reports" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ConsignmentSalesReport />
             </Layout>
           </ProtectedRoute>
         } 
@@ -328,6 +388,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <JournalEntries />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/accounting/assets" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AssetManagement />
             </Layout>
           </ProtectedRoute>
         } 
@@ -413,8 +483,10 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-background">
-          <AppRoutes />
-          <Toaster />
+          <ToastProvider>
+            <AppRoutes />
+            <Toaster /> {/* Letakkan Toaster di sini agar bisa mengakses context */}
+          </ToastProvider>
         </div>
       </Router>
     </AuthProvider>

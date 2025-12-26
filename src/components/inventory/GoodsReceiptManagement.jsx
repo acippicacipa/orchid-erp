@@ -507,9 +507,14 @@ const GoodsReceiptManagement = ( ) => {
                   <TabsContent value="manual" className="mt-0 space-y-8">
                     <div className="space-y-2">
                       <Label>Supplier (Optional)</Label>
-                      <SupplierSelector 
-                        value={formData.supplier} 
-                        onValueChange={v => setFormData(p => ({...p, supplier: v}))} 
+                      <SupplierSearchDropdown
+                        value={supplierSearchTerm}
+                        onValueChange={setSupplierSearchTerm}
+                        onSelect={(supplier) => {
+                          setFormData(prev => ({ ...prev, supplier: supplier.id, purchase_order: null, items: [] }));
+                          setSupplierSearchTerm(supplier.name); // Tampilkan nama di input
+                          fetchPurchaseOrdersBySupplier(supplier.id); // Ambil PO untuk supplier ini
+                        }}
                       />
                     </div>
                     <div className="space-y-2">

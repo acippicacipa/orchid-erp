@@ -17,34 +17,6 @@ import SupplierSearchDropdown from './SupplierSearchDropdown';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-const SupplierSelector = ({ value, onValueChange }) => {
-  const [suppliers, setSuppliers] = useState([]);
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        // Pastikan endpoint ini benar sesuai dengan URL purchasing app Anda
-        const res = await fetch(`${API_BASE_URL}/purchasing/suppliers/`, { headers: { 'Authorization': `Token ${token}` } });
-        if (!res.ok) return;
-        const data = await res.json();
-        setSuppliers(data.results || []);
-      } catch (error) {
-        console.error("Failed to fetch suppliers", error);
-      }
-    };
-    fetchSuppliers();
-  }, []);
-
-  return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger><SelectValue placeholder="Select a supplier..." /></SelectTrigger>
-      <SelectContent>
-        {suppliers.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-};
-
 const GoodsReceiptManagement = ( ) => {
   const [goodsReceipts, setGoodsReceipts] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -60,17 +32,17 @@ const GoodsReceiptManagement = ( ) => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const [manualProductSearch, setManualProductSearch] = useState('');
 
   const initialFormState = {
     purchase_order: null,
-    supplier: null,
+    supplier: null, // Akan menyimpan ID supplier
+    supplier_name: '', // Akan menyimpan nama supplier untuk ditampilkan
     location: '',
     notes: '',
     items: [],
   };
   const [formData, setFormData] = useState(initialFormState);
-
-  const [manualProductSearch, setManualProductSearch] = useState('');
 
   const fetchPurchaseOrdersBySupplier = useCallback(async (supplierId) => {
     if (!supplierId) {
@@ -148,9 +120,8 @@ const GoodsReceiptManagement = ( ) => {
 
   useEffect(() => {
     fetchGoodsReceipts();
-    fetchLocations(); // <-- PANGGIL DI SINI
-    // Anda juga bisa memanggil fetchAssemblyOrders di sini jika perlu
-  }, [fetchGoodsReceipts, fetchLocations]);
+    fetchLocations();
+  }, []);
 
   const handleConfirmReceipt = async () => {
     if (!selectedReceipt) return;
@@ -194,6 +165,8 @@ const GoodsReceiptManagement = ( ) => {
 
   const resetForm = () => {
     setFormData(initialFormState);
+    setSupplierSearchTerm(''); // Reset juga search term supplier
+    setManualProductSearch('');
   };
 
   const handleModeChange = (mode) => {
@@ -341,7 +314,7 @@ const GoodsReceiptManagement = ( ) => {
         // Atur field sumber berdasarkan mode
         purchase_order: isFromPO ? formData.purchase_order : null,
         assembly_order: isFromAO ? formData.assembly_order : null,
-        supplier: isManualMode ? (formData.supplier || null) : null,
+        supplier: formData.supplier,
         
         items: itemsToSubmit.map(item => ({
           product: item.product,
@@ -505,17 +478,28 @@ const GoodsReceiptManagement = ( ) => {
                   </TabsContent>
 
                   <TabsContent value="manual" className="mt-0 space-y-8">
-                    <div className="space-y-2">
-                      <Label>Supplier (Optional)</Label>
-                      <SupplierSearchDropdown
-                        value={supplierSearchTerm}
-                        onValueChange={setSupplierSearchTerm}
-                        onSelect={(supplier) => {
-                          setFormData(prev => ({ ...prev, supplier: supplier.id, purchase_order: null, items: [] }));
-                          setSupplierSearchTerm(supplier.name); // Tampilkan nama di input
-                          fetchPurchaseOrdersBySupplier(supplier.id); // Ambil PO untuk supplier ini
-                        }}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Supplier (Optional)</Label>
+                        <SupplierSearchDropdown
+                          value={supplierSearchTerm}
+                          onValueChange={setSupplierSearchTerm}
+                          onSelect={(supplier) => {
+                            // Simpan ID dan nama supplier ke state form utama
+                            setFormData(prev => ({ ...prev, supplier: supplier.id }));
+                            setSupplierSearchTerm(supplier.name);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Receive To Location *</Label>
+                        <Select value={formData.location} onValueChange={v => setFormData(p => ({...p, location: v}))} required>
+                          <SelectTrigger><SelectValue placeholder="Select location..." /></SelectTrigger>
+                          <SelectContent>
+                            {locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Add Product to List</Label>

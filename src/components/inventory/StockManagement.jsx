@@ -3,11 +3,12 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { useToast } from "../../hooks/use-toast";
-import { History, TrendingUp, TrendingDown, AlertTriangle, Search, Package, DollarSign, Archive } from "lucide-react";
+import { History, TrendingUp, TrendingDown, AlertTriangle, Search, Archive, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { useAuth } from '../../contexts/AuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -23,10 +24,12 @@ const formatRupiah = (amount) => {
   }).format(number);
 };
 
-// Parse input Rupiah ke number
-const parseRupiah = (rupiahString) => {
-  if (!rupiahString) return 0;
-  return parseInt(rupiahString.replace(/[^0-9]/g, '')) || 0;
+const formatDateToYMD = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const HistoryDialog = ({ isOpen, onClose, stockItem, token }) => {
@@ -36,9 +39,15 @@ const HistoryDialog = ({ isOpen, onClose, stockItem, token }) => {
     movements: [],
   });
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({
-    start_date: '',
-    end_date: '',
+  const [filters, setFilters] = useState(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 1); // Set ke satu bulan yang lalu
+
+    return {
+      start_date: formatDateToYMD(startDate),
+      end_date: formatDateToYMD(endDate),
+    };
   });
 
   const fetchHistory = useCallback(async (currentFilters) => {
@@ -166,6 +175,29 @@ const StockManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [initialLoad, setInitialLoad] = useState(true);
 
+  const [locations, setLocations] = useState([]);
+  const [exportLocation, setExportLocation] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  // --- 3. TAMBAHKAN FUNGSI UNTUK MENGAMBIL DATA LOKASI ---
+  const fetchLocations = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/inventory/locations/`, {
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      const data = await response.json();
+      setLocations(Array.isArray(data.results) ? data.results : []);
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  }, [token, toast]);
+
+  // Panggil fetchLocations saat komponen dimuat
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
+
   const handleViewHistory = (stockItem) => {
     setSelectedStock(stockItem);
     setIsHistoryOpen(true);
@@ -246,12 +278,51 @@ const StockManagement = () => {
     return { status: 'In Stock', color: 'text-green-600', icon: TrendingUp };
   };
 
+  const handleExport = async () => {
+    if (!exportLocation) {
+      toast({ title: "Warning", description: "Please select a location to export.", variant: "destructive" });
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/inventory/stock/export-for-opname/?location_id=${exportLocation}`,
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to export data.');
+      }
+
+      const disposition = response.headers.get('content-disposition');
+      const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : 'stock_opname.xlsx';
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({ title: "Success", description: "Stock data has been exported." });
+
+    } catch (error) {
+      toast({ title: "Export Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto">
       <h2 className="text-3xl font-bold tracking-tight mb-2">Stock Management</h2>
 
       {/* 4. Kartu Ringkasan (Summary Cards) */}
-      <div className="grid gap-4 md:grid-cols-3 mb-2">
+      {/* <div className="grid gap-4 md:grid-cols-3 mb-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Inventory Value</CardTitle>
@@ -282,7 +353,33 @@ const StockManagement = () => {
             <p className="text-xs text-muted-foreground">Total unique stock records shown below</p>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
+
+      <Card className="mb-6">
+        {/* <CardHeader>
+          <CardTitle>Tools</CardTitle>
+          <CardDescription>Export stock data for operational needs like stock opname.</CardDescription>
+        </CardHeader> */}
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+            <div className="grid gap-2 w-full sm:w-auto">
+              <Label htmlFor="export-location">Location to Export</Label>
+              <Select value={exportLocation} onValueChange={setExportLocation}>
+                <SelectTrigger id="export-location" className="w-full sm:w-[280px]">
+                  <SelectValue placeholder="Select a location..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map(loc => <SelectItem key={loc.id} value={loc.id.toString()}>{loc.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleExport} disabled={!exportLocation || isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {isExporting ? 'Exporting...' : 'Export for Opname'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader>

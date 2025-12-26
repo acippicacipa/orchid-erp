@@ -83,6 +83,7 @@ const Dashboard = () => {
 
       // Process data
       const productsList = products.results || products;
+      const productsCount = products.count;
       const locationsList = locations.results || locations;
       const stockList = stock.results || stock;
       const movementsList = movements.results || movements;
@@ -131,7 +132,7 @@ const Dashboard = () => {
 
       setDashboardData({
         inventory: {
-          totalProducts: productsList.length,
+          totalProducts: productsCount,
           totalLocations: locationsList.length,
           lowStockItems,
           recentMovements: movementsList.slice(0, 10),

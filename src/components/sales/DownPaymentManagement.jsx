@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card"; // +++
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { PlusCircle, Edit, Trash2, DollarSign, Calendar, User } from "lucide-react";
+import { PlusCircle, Edit, Trash2, DollarSign, Calendar, User, Search } from "lucide-react";
+import { Badge } from "../ui/badge";
+import CustomerSearchDropdown from './CustomerSearchDropdown';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.11:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // Format currency to Indonesian Rupiah
 const formatRupiah = (amount) => {
@@ -24,24 +27,23 @@ const formatRupiah = (amount) => {
 
 const DownPaymentManagement = () => {
   const [downPayments, setDownPayments] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDownPayment, setEditingDownPayment] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const { toast } = useToast();
 
   const initialDownPaymentState = {
-    customer: '',
+    customer: '', // Akan menyimpan ID
+    customer_name: '', // Akan menyimpan nama untuk ditampilkan
     amount: '',
+    payment_date: new Date().toISOString().split('T')[0], // +++ Default ke hari ini
     payment_method: 'CASH',
-    reference_number: '',
-    transaction_id: '',
-    expiry_date: '',
     notes: '',
   };
 
-  const [newDownPayment, setNewDownPayment] = useState(initialDownPaymentState);
+  const [formData, setFormData] = useState(initialDownPaymentState);
 
   const paymentMethods = [
     { value: 'CASH', label: 'Cash' },
@@ -61,15 +63,15 @@ const DownPaymentManagement = () => {
     { value: 'EXPIRED', label: 'Expired' },
   ];
 
-  useEffect(() => {
-    fetchDownPayments();
-    fetchCustomers();
-  }, []);
-
-  const fetchDownPayments = async () => {
+ const fetchDownPayments = useCallback(async () => {
+    setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/down-payments/`, {
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (statusFilter !== 'ALL') params.append('status', statusFilter);
+
+      const response = await fetch(`${API_BASE_URL}/sales/down-payments/?${params.toString()}`, {
         headers: { 'Authorization': `Token ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch down payments');
@@ -77,40 +79,34 @@ const DownPaymentManagement = () => {
       setDownPayments(data.results || []);
     } catch (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, toast]); // +++ Tambahkan dependency
 
-  const fetchCustomers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/customers/`, {
-        headers: { 'Authorization': `Token ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch customers');
-      const data = await response.json();
-      setCustomers(data.results || []);
-    } catch (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  };
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchDownPayments();
+    }, 500); // Debounce
+    return () => clearTimeout(handler);
+  }, [fetchDownPayments]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewDownPayment(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name, value) => {
-    setNewDownPayment(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.customer || !formData.amount) {
+      toast({ title: "Validation Error", description: "Customer and Amount are required.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const method = editingDownPayment ? 'PUT' : 'POST';
@@ -119,9 +115,11 @@ const DownPaymentManagement = () => {
         : `${API_BASE_URL}/sales/down-payments/`;
       
       const payload = {
-        ...newDownPayment,
-        customer: parseInt(newDownPayment.customer),
-        amount: parseFloat(newDownPayment.amount || 0),
+        customer: formData.customer, // Kirim ID
+        amount: parseFloat(formData.amount),
+        payment_date: formData.payment_date,
+        payment_method: formData.payment_method,
+        notes: formData.notes,
       };
 
       const response = await fetch(url, {
@@ -132,29 +130,28 @@ const DownPaymentManagement = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || JSON.stringify(errorData) || 'Failed to save down payment');
+        throw new Error(errorData.detail || JSON.stringify(errorData));
       }
 
-      toast({ title: "Success", description: `Down payment ${editingDownPayment ? 'updated' : 'created'} successfully.` });
+      toast({ title: "Success", description: `Down payment ${editingDownPayment ? 'updated' : 'saved'} successfully.` });
       setIsModalOpen(false);
-      setNewDownPayment(initialDownPaymentState);
-      setEditingDownPayment(null);
-      fetchDownPayments();
+      fetchDownPayments(); // Refresh data
     } catch (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEdit = (downPayment) => {
-    setEditingDownPayment(downPayment);
-    setNewDownPayment({
-      customer: downPayment.customer.toString(),
-      amount: downPayment.amount.toString(),
-      payment_method: downPayment.payment_method,
-      reference_number: downPayment.reference_number || '',
-      transaction_id: downPayment.transaction_id || '',
-      expiry_date: downPayment.expiry_date || '',
-      notes: downPayment.notes || '',
+  const handleEdit = (dp) => {
+    setEditingDownPayment(dp);
+    setFormData({
+      customer: dp.customer,
+      customer_name: dp.customer_name,
+      amount: dp.amount.toString(),
+      payment_date: dp.payment_date,
+      payment_method: dp.payment_method,
+      notes: dp.notes || '',
     });
     setIsModalOpen(true);
   };
@@ -183,126 +180,74 @@ const DownPaymentManagement = () => {
   });
 
   const getStatusBadge = (status) => {
-    const statusColors = {
-      'ACTIVE': 'bg-green-100 text-green-800',
-      'USED': 'bg-blue-100 text-blue-800',
+    const config = {
+      'UNAPPLIED': 'bg-green-100 text-green-800',
+      'APPLIED': 'bg-blue-100 text-blue-800',
       'REFUNDED': 'bg-yellow-100 text-yellow-800',
-      'EXPIRED': 'bg-red-100 text-red-800',
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status}
-      </span>
-    );
+    }[status] || 'bg-gray-100 text-gray-800';
+    return <Badge className={config}>{status}</Badge>;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Down Payment Management</h1>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
               setEditingDownPayment(null);
-              setNewDownPayment(initialDownPaymentState);
+              setFormData(initialDownPaymentState);
             }}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Down Payment
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingDownPayment ? 'Edit Down Payment' : 'Add New Down Payment'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+              {/* +++ Form yang sudah ditata ulang +++ */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="customer">Customer *</Label>
-                  <Select name="customer" value={newDownPayment.customer} onValueChange={(value) => handleSelectChange('customer', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                          {customer.name} ({customer.customer_id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CustomerSearchDropdown
+                    value={formData.customer_name}
+                    onSelect={(customer) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        customer: customer.id,
+                        customer_name: customer.name
+                      }));
+                    }}
+                  />
                 </div>
-                <div className="grid gap-2">
+                <div className="space-y-2">
                   <Label htmlFor="amount">Amount (IDR) *</Label>
-                  <Input 
-                    id="amount" 
-                    name="amount" 
-                    type="number" 
-                    step="0.01"
-                    value={newDownPayment.amount} 
-                    onChange={handleInputChange} 
-                    required 
-                  />
+                  <Input id="amount" name="amount" type="number" value={formData.amount} onChange={handleInputChange} required />
                 </div>
-                <div className="grid gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="payment_date">Payment Date</Label>
+                  <Input id="payment_date" name="payment_date" type="date" value={formData.payment_date} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="payment_method">Payment Method</Label>
-                  <Select name="payment_method" value={newDownPayment.payment_method} onValueChange={(value) => handleSelectChange('payment_method', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
+                  <Select name="payment_method" value={formData.payment_method} onValueChange={(value) => handleSelectChange('payment_method', value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {paymentMethods.map(method => (
-                        <SelectItem key={method.value} value={method.value}>
-                          {method.label}
-                        </SelectItem>
-                      ))}
+                      {paymentMethods.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="expiry_date">Expiry Date</Label>
-                  <Input 
-                    id="expiry_date" 
-                    name="expiry_date" 
-                    type="date"
-                    value={newDownPayment.expiry_date} 
-                    onChange={handleInputChange} 
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="reference_number">Reference Number</Label>
-                  <Input 
-                    id="reference_number" 
-                    name="reference_number" 
-                    value={newDownPayment.reference_number} 
-                    onChange={handleInputChange} 
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="transaction_id">Transaction ID</Label>
-                  <Input 
-                    id="transaction_id" 
-                    name="transaction_id" 
-                    value={newDownPayment.transaction_id} 
-                    onChange={handleInputChange} 
-                  />
                 </div>
               </div>
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea 
-                  id="notes" 
-                  name="notes" 
-                  value={newDownPayment.notes} 
-                  onChange={handleInputChange} 
-                  rows={3}
-                />
+                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} rows={3} />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingDownPayment ? 'Update' : 'Create'}
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Saving...' : (editingDownPayment ? 'Update' : 'Create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -310,89 +255,77 @@ const DownPaymentManagement = () => {
         </Dialog>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="flex-1">
-          <Input
-            placeholder="Search by customer name or down payment number..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map(option => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Down Payments</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by DP number or customer name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
-      {/* Down Payments Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>DP Number</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Payment Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Remaining</TableHead>
-              <TableHead>Payment Method</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Expiry Date</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredDownPayments.map((downPayment) => (
-              <TableRow key={downPayment.id}>
-                <TableCell className="font-medium">{downPayment.down_payment_number}</TableCell>
-                <TableCell>{downPayment.customer_name}</TableCell>
-                <TableCell>{new Date(downPayment.payment_date).toLocaleDateString('id-ID')}</TableCell>
-                <TableCell>{formatRupiah(downPayment.amount)}</TableCell>
-                <TableCell className="font-medium text-green-600">
-                  {formatRupiah(downPayment.remaining_amount)}
-                </TableCell>
-                <TableCell>{downPayment.payment_method}</TableCell>
-                <TableCell>{getStatusBadge(downPayment.status)}</TableCell>
-                <TableCell>
-                  {downPayment.expiry_date ? new Date(downPayment.expiry_date).toLocaleDateString('id-ID') : '-'}
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(downPayment)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(downPayment.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {filteredDownPayments.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          No down payments found.
-        </div>
-      )}
+      {/* +++ Tabel Data dalam Card +++ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Down Payment List</CardTitle>
+          <CardDescription>List of all recorded customer down payments.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DP Number</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell></TableRow>
+                ) : downPayments.length > 0 ? (
+                  downPayments.map((dp) => (
+                    <TableRow key={dp.id}>
+                      <TableCell className="font-medium">{dp.dp_number}</TableCell>
+                      <TableCell>{dp.customer_name}</TableCell>
+                      <TableCell>{new Date(dp.payment_date).toLocaleDateString('id-ID')}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatRupiah(dp.amount)}</TableCell>
+                      <TableCell>{getStatusBadge(dp.status)}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(dp)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-500" onClick={() => handleDelete(dp.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center">No down payments found.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

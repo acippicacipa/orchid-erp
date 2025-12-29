@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
@@ -9,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { X } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
 import ProductSearchDropdown from './ProductSearchDropdown'; // Pastikan path ini benar
+import CustomerSearchDropdown from './CustomerSearchDropdown';
 
 // ID untuk customer guest, sesuaikan dengan data di database Anda
 const GUEST_CUSTOMER_ID = 1; 
@@ -33,8 +35,9 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
   const [formData, setFormData] = useState(initialData);
   const [isCreditSale, setIsCreditSale] = useState(true);
   const [isGuestMode, setIsGuestMode] = useState(false);
-  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
+  const [availableDPs, setAvailableDPs] = useState([]);
+  const [selectedDPs, setSelectedDPs] = useState([]);
 
   const [newItem, setNewItem] = useState({
     product: '',
@@ -63,6 +66,33 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === formData.customer);
   }, [formData.customer, customers]);
+
+  const fetchAvailableDPs = useCallback(async (customerId) => {
+    if (!customerId) {
+      setAvailableDPs([]);
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/sales/down-payments/?customer_id=${customerId}&status=UNAPPLIED`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableDPs(data.results || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch available down payments", error);
+      toast({ title: "Error", description: "Could not fetch down payments.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  // +++ PANGGIL fetchAvailableDPs SAAT CUSTOMER BERUBAH +++
+  useEffect(() => {
+    if (formData.customer) {
+      fetchAvailableDPs(formData.customer);
+    }
+  }, [formData.customer, fetchAvailableDPs]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -101,6 +131,12 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
 
     setShowCustomerDropdown(false);
   };
+
+  const handleDPSelection = (dpId) => {
+    setSelectedDPs(prev => 
+      prev.includes(dpId) ? prev.filter(id => id !== dpId) : [...prev, dpId]
+    );
+  };
   
   const fetchProductPrice = useCallback(async (productId, quantity) => {
     const customerId = formData.customer;
@@ -110,7 +146,11 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
       const response = await fetch(`${API_BASE_URL}/sales/products/${productId}/calculate-price/?customer_id=${customerId}&quantity=${quantity}`, { headers: { 'Authorization': `Token ${token}` } });
       if (response.ok) {
         const data = await response.json();
-        setNewItem(prev => ({ ...prev, unit_price: data.unit_price.toString(), discount_percentage: data.discount_percentage.toString() }));
+        etNewItem(prev => ({ 
+          ...prev, 
+          unit_price: data.unit_price.toString(), 
+          discount_percentage: data.discount_percentage.toString() 
+        }));
       }
     } catch (error) {
       console.error("Error fetching price:", error);
@@ -125,7 +165,7 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
 
   const handleProductSelect = (product) => {
     if (product) {
-      setNewItem(prev => ({ ...prev, product: product.id, product_full_name: product.full_name, unit_price: '0', discount_percentage: '0' }));
+      setNewItem(prev => ({ ...prev, product: product.id, product_full_name: product.full_name, unit_price: product.selling_price, discount_percentage: '0' }));
     }
   };
 
@@ -245,29 +285,30 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
 
   // Kode BARU yang sudah diperbaiki
   const totals = useMemo(() => {
-      // Gunakan (formData.items ?? []) untuk memastikan kita selalu bekerja dengan array.
-      // Jika formData.items adalah undefined atau null, ia akan menggunakan array kosong [] sebagai gantinya.
-      const items = formData.items ?? []; 
+      const items = formData.items ?? [];
+    const subtotal = items.reduce((sum, item) => sum + (item.line_total || 0), 0);
+    const orderDiscountAmount = (subtotal * parseFloat(formData.discount_percentage || 0)) / 100;
+    const taxableAmount = subtotal - orderDiscountAmount;
+    const taxAmount = (taxableAmount * parseFloat(formData.tax_percentage || 0)) / 100;
+    const shippingCost = parseFloat(formData.shipping_cost || 0);
+    
+    // Hitung total DP yang dipilih
+    const totalDPApplied = availableDPs
+      .filter(dp => selectedDPs.includes(dp.id))
+      .reduce((sum, dp) => sum + parseFloat(dp.amount), 0);
 
-      const subtotal = items.reduce((sum, item) => {
-          const itemTotal = (item.quantity || 0) * (item.unit_price || 0) * (1 - (item.discount_percentage || 0) / 100);
-          return sum + itemTotal;
-      }, 0);
-
-      const orderDiscountAmount = (subtotal * parseFloat(formData.discount_percentage || 0)) / 100;
-      const taxableAmount = subtotal - orderDiscountAmount;
-      const taxAmount = (taxableAmount * parseFloat(formData.tax_percentage || 0)) / 100;
-      const shippingCost = parseFloat(formData.shipping_cost || 0);
-      const total = taxableAmount + taxAmount + shippingCost;
+    const total = taxableAmount + taxAmount + shippingCost - totalDPApplied;
       
-      return { subtotal, orderDiscountAmount, taxAmount, total };
-
-  }, [formData.items, formData.discount_percentage, formData.tax_percentage, formData.shipping_cost]);
+    return { subtotal, orderDiscountAmount, taxAmount, total, totalDPApplied };
+  }, [formData.items, formData.discount_percentage, formData.tax_percentage, formData.shipping_cost, selectedDPs, availableDPs]);
 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({
+      ...formData,
+      down_payment_ids: selectedDPs,
+    });
   };
 
   const formatCurrency = (amount) => {
@@ -285,29 +326,16 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-6">
         <div className="space-y-2 relative">
           <Label htmlFor="customer">Customer *</Label>
-          <Input
-            placeholder="Search customer by name or ID..."
-            value={customerSearchTerm}
-            onChange={(e) => {
-              setCustomerSearchTerm(e.target.value);
-              setShowCustomerDropdown(e.target.value.length >= 2);
+          <CustomerSearchDropdown
+            value={formData.customer_name}
+            onSelect={(customer) => {
+              setFormData(prev => ({
+                ...prev,
+                customer: customer.id,
+                customer_name: customer.name
+              }));
             }}
-            onFocus={() => setShowCustomerDropdown(customerSearchTerm.length >= 2)}
           />
-          {showCustomerDropdown && (
-            <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-              {customers
-                .filter(c => 
-                  c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-                  c.customer_id?.toLowerCase().includes(customerSearchTerm.toLowerCase())
-                )
-                .map(c => (
-                  <div key={c.id} className="p-2 hover:bg-gray-100 cursor-pointer" onClick={() => selectCustomer(c)}>
-                    <div className="font-medium">{c.name} <span className="text-sm text-gray-500">({c.customer_id})</span></div>
-                  </div>
-                ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -476,12 +504,61 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
                 <span>Shipping:</span>
                 <span className="font-medium">{formatCurrency(parseFloat(formData.shipping_cost || 0))}</span>
                 </div>
+                {totals.totalDPApplied > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Down Payment Applied:</span>
+                    <span className="font-medium">-{formatRupiah(totals.totalDPApplied)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span>{formatCurrency(totals.total)}</span>
                 </div>
             </div>
             </CardContent>
+        </Card>
+      )}
+
+      {availableDPs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply Available Down Payments</CardTitle>
+            <p className="text-sm text-muted-foreground">Select one or more down payments to apply to this order.</p>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">Apply</TableHead>
+                    <TableHead>DP Number</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {availableDPs.map(dp => (
+                    <TableRow key={dp.id} className={selectedDPs.includes(dp.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedDPs.includes(dp.id)}
+                          onCheckedChange={() => handleDPSelection(dp.id)}
+                          id={`dp-${dp.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Label htmlFor={`dp-${dp.id}`} className="cursor-pointer font-medium">{dp.dp_number}</Label>
+                      </TableCell>
+                      <TableCell>{new Date(dp.payment_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{dp.notes}</TableCell>
+                      <TableCell className="text-right">{formatRupiah(dp.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
         </Card>
       )}
 

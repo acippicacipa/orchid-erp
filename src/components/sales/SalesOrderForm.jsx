@@ -35,6 +35,8 @@ const SalesOrderForm = ({ initialData, onSubmit, customers, products, isEditing 
   const [formData, setFormData] = useState(initialData);
   const [isCreditSale, setIsCreditSale] = useState(true);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   const [availableDPs, setAvailableDPs] = useState([]);
   const [selectedDPs, setSelectedDPs] = useState([]);

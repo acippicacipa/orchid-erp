@@ -46,6 +46,7 @@ import PurchaseReturnManagement from './components/purchasing/PurchaseReturnMana
 import ConsignmentShipment from './components/sales/ConsignmentShipment'
 import ConsignmentSalesReport from './components/sales/ConsignmentSalesReport'
 import ProductBundling from './components/inventory/ProductBundling';
+import DownPaymentManagement from './components/sales/DownPaymentManagement';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -316,6 +317,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <CreateSalesOrder />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/sales/down-payments" 
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <DownPaymentManagement />
             </Layout>
           </ProtectedRoute>
         } 

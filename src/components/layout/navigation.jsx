@@ -51,6 +51,7 @@ export const navigation = [
     subItems: [
       { name: 'Sales Orders', href: '/sales/orders', roles: ADMIN_AND_SALES },
       { name: 'Create Sales Order', href: '/sales/orders/create', roles: ADMIN_AND_SALES },
+      { name: 'Down Payment (DP)', href: '/sales/down-payments', roles: ADMIN_AND_SALES },
       { name: 'Sales Returns', href: '/sales/returns', roles: ADMIN_AND_SALES },
       { name: 'Order Approvals', href: '/sales/approvals', roles: ADMIN_ONLY },
       { name: 'Invoices', href: '/sales/invoices', roles: ADMIN_AND_SALES },
@@ -115,7 +116,7 @@ export const navigation = [
       { name: 'Categories', href: '/inventory/categories', roles: ADMIN_ONLY },
       { name: 'Locations', href: '/inventory/locations', roles: ADMIN_ONLY },
       { name: 'Suppliers', href: '/purchasing/suppliers', roles: ADMIN_AND_PURCHASING },
-      { name: 'Customers', href: '/sales/customers', roles: ADMIN_AND_SALES },
+      { name: 'Customers', href: '/sales/customers', roles: ADMIN_ONLY },
       { name: 'Users', href: '/users/management', roles: ADMIN_ONLY }
     ]
   },
